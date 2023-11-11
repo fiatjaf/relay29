@@ -14,14 +14,7 @@ func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (r
 	}
 
 	groupId := (*gtag)[1]
-	group, ok := loadGroup(ctx, groupId)
-	if !ok {
-		// if the group doesn't exist, it can still be created by the relay owner
-		if event.PubKey != s.RelayPubkey || event.Kind != 9000 {
-			// otherwise just reject
-			return true, "unknown group"
-		}
-	}
+	group := loadGroup(ctx, groupId)
 
 	// only members can write
 	if _, isMember := group.Members[event.PubKey]; !isMember {
@@ -30,40 +23,41 @@ func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (r
 
 	// if this is a moderation action, check if the user should be allowed to perform it
 	if event.Kind == 9000 {
-		mod, ok := group.Admins[event.PubKey]
-		if !ok {
+		role, ok := group.Members[event.PubKey]
+		if !ok || role == emptyRole {
 			return true, "not a moderator"
 		}
 		for _, tag := range event.Tags.GetAll([]string{"action", ""}) {
 			switch tag[1] {
 			case "add-user":
-				if !mod.AddUser || len(tag) < 3 {
+				if !role.AddUser || len(tag) < 3 {
 					return true, "invalid action " + tag[1]
 				}
 			case "edit-metadata":
-				if !mod.EditMetadata || len(tag) != 4 {
+				if !role.EditMetadata || len(tag) != 4 {
 					return true, "invalid action " + tag[1]
 				}
 			case "ban-user":
-				if !mod.BanUser || len(tag) != 3 {
+				if !role.BanUser || len(tag) != 3 {
 					return true, "invalid action " + tag[1]
 				}
 			case "add-permission":
-				if !mod.AddPermission || len(tag) != 4 {
+				if !role.AddPermission || len(tag) != 4 {
 					return true, "invalid action " + tag[1]
 				}
 			case "remove-permission":
-				if !mod.RemovePermission || len(tag) != 4 {
+				if !role.RemovePermission || len(tag) != 4 {
 					return true, "invalid action " + tag[1]
 				}
 			default:
 				return false, "unknown action " + tag[1]
 			}
 		}
-		if group.bucket.Available() == 0 {
+		if rsv := group.bucket.Reserve(); rsv.Delay() != 0 {
+			rsv.Cancel()
 			return true, "rate-limited"
 		} else {
-			group.bucket.Take(1)
+			rsv.OK()
 		}
 	}
 
@@ -82,33 +76,31 @@ func blockDeletesOfOldMessages(ctx context.Context, target, deletion *nostr.Even
 func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	gtag := event.Tags.GetFirst([]string{"h", ""})
 	groupId := (*gtag)[1]
-	group, _ := loadGroup(ctx, groupId)
+	group := loadGroup(ctx, groupId)
 	applyAction(group, event)
 }
 
 func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
-	ch := make(chan *nostr.Event)
+	ch := make(chan *nostr.Event, 1)
 	if slices.Contains(filter.Kinds, 39000) {
 		for _, groupId := range filter.Tags["d"] {
-			group, ok := loadGroup(ctx, groupId)
-			if ok {
-				evt := &nostr.Event{
-					Kind:      39000,
-					CreatedAt: nostr.Now(),
-					Content:   group.About,
-					Tags: nostr.Tags{
-						nostr.Tag{"d", group.ID},
-					},
-				}
-				if group.Name != "" {
-					evt.Tags = append(evt.Tags, nostr.Tag{"name", group.Name})
-				}
-				if group.Picture != "" {
-					evt.Tags = append(evt.Tags, nostr.Tag{"picture", group.Picture})
-				}
-				evt.Sign(s.RelayPrivkey)
-				ch <- evt
+			group := loadGroup(ctx, groupId)
+			evt := &nostr.Event{
+				Kind:      39000,
+				CreatedAt: nostr.Now(),
+				Content:   group.About,
+				Tags: nostr.Tags{
+					nostr.Tag{"d", group.ID},
+				},
 			}
+			if group.Name != "" {
+				evt.Tags = append(evt.Tags, nostr.Tag{"name", group.Name})
+			}
+			if group.Picture != "" {
+				evt.Tags = append(evt.Tags, nostr.Tag{"picture", group.Picture})
+			}
+			evt.Sign(s.RelayPrivkey)
+			ch <- evt
 		}
 	}
 	close(ch)
@@ -116,27 +108,27 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 }
 
 func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
-	ch := make(chan *nostr.Event)
+	ch := make(chan *nostr.Event, 1)
 	if slices.Contains(filter.Kinds, 39001) {
 		for _, groupId := range filter.Tags["d"] {
-			group, ok := loadGroup(ctx, groupId)
-			if ok {
-				evt := &nostr.Event{
-					Kind:      39001,
-					CreatedAt: nostr.Now(),
-					Content:   "list of admins for group " + groupId,
-					Tags: nostr.Tags{
-						nostr.Tag{"d", group.ID},
-					},
-				}
-				for pubkey := range group.Admins {
+			group := loadGroup(ctx, groupId)
+			evt := &nostr.Event{
+				Kind:      39001,
+				CreatedAt: nostr.Now(),
+				Content:   "list of admins for group " + groupId,
+				Tags: nostr.Tags{
+					nostr.Tag{"d", group.ID},
+				},
+			}
+			for pubkey, role := range group.Members {
+				if role != emptyRole && role != masterRole {
 					tag := nostr.Tag{pubkey, "admin"}
 					// TODO
 					evt.Tags = append(evt.Tags, tag)
 				}
-				evt.Sign(s.RelayPrivkey)
-				ch <- evt
 			}
+			evt.Sign(s.RelayPrivkey)
+			ch <- evt
 		}
 	}
 	close(ch)

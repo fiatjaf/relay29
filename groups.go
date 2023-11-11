@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"time"
 
-	"github.com/juju/ratelimit"
 	"github.com/nbd-wtf/go-nostr"
+	"golang.org/x/time/rate"
 )
 
 type Group struct {
@@ -12,14 +13,12 @@ type Group struct {
 	Name    string
 	Picture string
 	About   string
-	Members map[string]struct{}
-	Admins  map[string]*Role
+	Members map[string]*Role
 
-	bucket *ratelimit.Bucket
+	bucket *rate.Limiter
 }
 
 type Role struct {
-	ID               string
 	Name             string
 	AddUser          bool
 	EditMetadata     bool
@@ -29,15 +28,31 @@ type Role struct {
 	RemovePermission bool
 }
 
-var groups = make(map[string]*Group)
+var (
+	groups = make(map[string]*Group)
+
+	// used for the default role, the actual relay, hidden otherwise
+	masterRole *Role = &Role{"master", true, true, true, true, true, true}
+
+	// used for normal members without admin powers, not displayed
+	emptyRole *Role = nil
+)
 
 // loadGroup loads all the group metadata from all the past action messages
-func loadGroup(ctx context.Context, id string) (*Group, bool) {
+func loadGroup(ctx context.Context, id string) *Group {
 	if group, ok := groups[id]; ok {
-		return group, true
+		return group
 	}
 
-	group := &Group{ID: id}
+	group := &Group{
+		ID: id,
+		Members: map[string]*Role{
+			s.RelayPubkey: masterRole,
+		},
+
+		// very strict rate limits
+		bucket: rate.NewLimiter(rate.Every(time.Minute*2), 15),
+	}
 	ch, _ := db.QueryEvents(ctx, nostr.Filter{Limit: 5000, Kinds: []int{9000}, Tags: nostr.TagMap{"h": []string{id}}})
 
 	events := make([]*nostr.Event, 0, 5000)
@@ -45,14 +60,15 @@ func loadGroup(ctx context.Context, id string) (*Group, bool) {
 		events = append(events, event)
 	}
 	if len(events) == 0 {
-		return group, false
+		// create group here
+		return group
 	}
 	for i := len(events) - 1; i >= 0; i-- {
 		applyAction(group, events[i])
 	}
 
-	group.bucket = ratelimit.NewBucketWithRate(1/(60*5), 3) // very strict rate limits
-	return group, true
+	groups[id] = group
+	return group
 }
 
 func applyAction(group *Group, action *nostr.Event) {
@@ -60,7 +76,7 @@ func applyAction(group *Group, action *nostr.Event) {
 		switch tag[1] {
 		case "add-user":
 			for _, id := range tag[2:] {
-				group.Members[id] = struct{}{}
+				group.Members[id] = emptyRole
 			}
 		case "edit-metadata":
 			switch tag[2] {
@@ -74,40 +90,43 @@ func applyAction(group *Group, action *nostr.Event) {
 		case "ban-user":
 			delete(group.Members, tag[2])
 		case "add-permission":
-			admin, ok := group.Admins[tag[2]]
-			if !ok {
-				admin = &Role{}
-				group.Admins[tag[2]] = admin
+			role, ok := group.Members[tag[2]]
+			if !ok || role == nil {
+				role = &Role{}
+				group.Members[tag[2]] = role
 			}
 			switch tag[3] {
 			case "add-user":
-				admin.AddUser = true
+				role.AddUser = true
 			case "edit-metadata":
-				admin.EditMetadata = true
+				role.EditMetadata = true
 			case "delete-event":
-				admin.DeleteEvent = true
+				role.DeleteEvent = true
 			case "ban-user":
-				admin.BanUser = true
+				role.BanUser = true
 			case "add-permission":
-				admin.AddPermission = true
+				role.AddPermission = true
 			case "remove-permission":
-				admin.RemovePermission = true
+				role.RemovePermission = true
 			}
 		case "remove-permission":
-			if admin, ok := group.Admins[tag[2]]; ok {
+			if role, ok := group.Members[tag[2]]; ok && role != nil {
 				switch tag[3] {
 				case "add-user":
-					admin.AddUser = false
+					role.AddUser = false
 				case "edit-metadata":
-					admin.EditMetadata = false
+					role.EditMetadata = false
 				case "delete-event":
-					admin.DeleteEvent = false
+					role.DeleteEvent = false
 				case "ban-user":
-					admin.BanUser = false
+					role.BanUser = false
 				case "add-permission":
-					admin.AddPermission = false
+					role.AddPermission = false
 				case "remove-permission":
-					admin.RemovePermission = false
+					role.RemovePermission = false
+				}
+				if !role.AddPermission && !role.RemovePermission && !role.BanUser && !role.DeleteEvent && !role.EditMetadata && !role.AddUser && role.Name == "" {
+					group.Members[tag[2]] = emptyRole
 				}
 			}
 		}

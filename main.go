@@ -66,6 +66,12 @@ func main() {
 	relay.OverwriteDeletionOutcome = append(relay.OverwriteDeletionOutcome,
 		blockDeletesOfOldMessages,
 	)
+	relay.OverwriteFilter = append(relay.OverwriteFilter,
+		plugins.RemoveAllButKinds(9, 11, 9001, 9002, 9003, 9004, 9005, 39000, 39001),
+	)
+	relay.RejectFilter = append(relay.RejectFilter,
+		requireKindAndSingleGroupID,
+	)
 	relay.RejectEvent = append(relay.RejectEvent,
 		plugins.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
 		plugins.PreventTimestampsInThePast(60),

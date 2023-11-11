@@ -154,3 +154,33 @@ func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.E
 	close(ch)
 	return ch, nil
 }
+
+func requireKindAndSingleGroupID(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+	if len(filter.Kinds) == 0 {
+		return true, "must specify kinds"
+	}
+
+	isMeta := false
+	isNormal := false
+	for _, kind := range filter.Kinds {
+		if kind < 10000 {
+			isNormal = true
+		} else if kind >= 30000 {
+			isMeta = true
+		}
+	}
+	if isNormal && isMeta {
+		return true, "cannot request both meta and normal events at the same time"
+	}
+	if !isNormal && !isMeta {
+		return true, "unexpected kinds requested"
+	}
+
+	if isNormal {
+		if ids, ok := filter.Tags["h"]; ok && len(ids) != 0 {
+			return true, "must have an 'h' tag"
+		}
+	}
+
+	return false, ""
+}

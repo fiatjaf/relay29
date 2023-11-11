@@ -67,10 +67,13 @@ func main() {
 		blockDeletesOfOldMessages,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
-		plugins.RestrictToSpecifiedKinds(9, 11, 9000),
+		plugins.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
 		plugins.PreventTimestampsInThePast(60),
 		plugins.PreventTimestampsInTheFuture(30),
+		requireHTag,
 		restrictWritesBasedOnGroupRules,
+		restrictInvalidModerationActions,
+		rateLimit,
 	)
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		applyModerationAction,

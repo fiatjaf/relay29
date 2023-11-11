@@ -19,20 +19,42 @@ type Group struct {
 }
 
 type Role struct {
-	Name             string
-	AddUser          bool
-	EditMetadata     bool
-	DeleteEvent      bool
-	BanUser          bool
-	AddPermission    bool
-	RemovePermission bool
+	Name        string
+	Permissions map[Permission]struct{}
+}
+
+type Permission = string
+
+const (
+	PermAddUser          Permission = "add-user"
+	PermEditMetadata     Permission = "edit-metadata"
+	PermDeleteEvent      Permission = "delete-event"
+	PermRemoveUser       Permission = "remove-user"
+	PermAddPermission    Permission = "add-permission"
+	PermRemovePermission Permission = "remove-permission"
+)
+
+var availablePermissions = map[Permission]struct{}{
+	PermAddUser:          {},
+	PermEditMetadata:     {},
+	PermDeleteEvent:      {},
+	PermRemoveUser:       {},
+	PermAddPermission:    {},
+	PermRemovePermission: {},
 }
 
 var (
 	groups = make(map[string]*Group)
 
 	// used for the default role, the actual relay, hidden otherwise
-	masterRole *Role = &Role{"master", true, true, true, true, true, true}
+	masterRole *Role = &Role{"master", map[Permission]struct{}{
+		PermAddUser:          {},
+		PermEditMetadata:     {},
+		PermDeleteEvent:      {},
+		PermRemoveUser:       {},
+		PermAddPermission:    {},
+		PermRemovePermission: {},
+	}}
 
 	// used for normal members without admin powers, not displayed
 	emptyRole *Role = nil
@@ -72,63 +94,4 @@ func loadGroup(ctx context.Context, id string) *Group {
 }
 
 func applyAction(group *Group, action *nostr.Event) {
-	for _, tag := range action.Tags.GetAll([]string{"action", ""}) {
-		switch tag[1] {
-		case "add-user":
-			for _, id := range tag[2:] {
-				group.Members[id] = emptyRole
-			}
-		case "edit-metadata":
-			switch tag[2] {
-			case "name":
-				group.Name = tag[3]
-			case "picture":
-				group.Picture = tag[3]
-			case "about":
-				group.About = tag[3]
-			}
-		case "ban-user":
-			delete(group.Members, tag[2])
-		case "add-permission":
-			role, ok := group.Members[tag[2]]
-			if !ok || role == nil {
-				role = &Role{}
-				group.Members[tag[2]] = role
-			}
-			switch tag[3] {
-			case "add-user":
-				role.AddUser = true
-			case "edit-metadata":
-				role.EditMetadata = true
-			case "delete-event":
-				role.DeleteEvent = true
-			case "ban-user":
-				role.BanUser = true
-			case "add-permission":
-				role.AddPermission = true
-			case "remove-permission":
-				role.RemovePermission = true
-			}
-		case "remove-permission":
-			if role, ok := group.Members[tag[2]]; ok && role != nil {
-				switch tag[3] {
-				case "add-user":
-					role.AddUser = false
-				case "edit-metadata":
-					role.EditMetadata = false
-				case "delete-event":
-					role.DeleteEvent = false
-				case "ban-user":
-					role.BanUser = false
-				case "add-permission":
-					role.AddPermission = false
-				case "remove-permission":
-					role.RemovePermission = false
-				}
-				if !role.AddPermission && !role.RemovePermission && !role.BanUser && !role.DeleteEvent && !role.EditMetadata && !role.AddUser && role.Name == "" {
-					group.Members[tag[2]] = emptyRole
-				}
-			}
-		}
-	}
 }

@@ -49,8 +49,8 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 	group := loadGroup(ctx, groupId)
 
 	role, ok := group.Members[event.PubKey]
-	if !ok || role != emptyRole {
-		return true, "insufficient permissions"
+	if !ok || role == emptyRole {
+		return true, "unknown admin"
 	}
 	if _, ok := role.Permissions[action.PermissionRequired()]; !ok {
 		return true, "insufficient permissions"

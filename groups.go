@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
+	"golang.org/x/exp/maps"
 	"golang.org/x/time/rate"
 )
 
@@ -75,7 +76,9 @@ func loadGroup(ctx context.Context, id string) *Group {
 		// very strict rate limits
 		bucket: rate.NewLimiter(rate.Every(time.Minute*2), 15),
 	}
-	ch, _ := db.QueryEvents(ctx, nostr.Filter{Limit: 5000, Kinds: []int{9000}, Tags: nostr.TagMap{"h": []string{id}}})
+	ch, _ := db.QueryEvents(ctx, nostr.Filter{
+		Limit: 5000, Kinds: maps.Keys(moderationActionFactories), Tags: nostr.TagMap{"h": []string{id}},
+	})
 
 	events := make([]*nostr.Event, 0, 5000)
 	for event := range ch {
@@ -86,12 +89,11 @@ func loadGroup(ctx context.Context, id string) *Group {
 		return group
 	}
 	for i := len(events) - 1; i >= 0; i-- {
-		applyAction(group, events[i])
+		evt := events[i]
+		act, _ := moderationActionFactories[evt.Kind](evt)
+		act.Apply(group)
 	}
 
 	groups[id] = group
 	return group
-}
-
-func applyAction(group *Group, action *nostr.Event) {
 }

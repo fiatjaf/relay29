@@ -47,3 +47,5 @@ require (
 replace github.com/fiatjaf/khatru => /home/fiatjaf/comp/khatru
 
 replace github.com/fiatjaf/eventstore => /home/fiatjaf/comp/eventstore
+
+replace github.com/bmatsuo/lmdb-go => /home/fiatjaf/comp/lmdb-go

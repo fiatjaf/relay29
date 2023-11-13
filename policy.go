@@ -177,7 +177,7 @@ func requireKindAndSingleGroupID(ctx context.Context, filter nostr.Filter) (reje
 	}
 
 	if isNormal {
-		if ids, ok := filter.Tags["h"]; ok && len(ids) != 0 {
+		if tags, _ := filter.Tags["h"]; len(tags) == 0 {
 			return true, "must have an 'h' tag"
 		}
 	}

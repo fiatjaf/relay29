@@ -10,22 +10,28 @@ type Action interface {
 
 var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 	9000: func(evt *nostr.Event) (Action, bool) {
-		if tag := evt.Tags.GetFirst([]string{"p", ""}); tag != nil {
-			if nostr.IsValidPublicKeyHex((*tag)[1]) {
-				return &AddUser{
-					Target: (*tag)[1],
-				}, true
+		targets := make([]string, 0, len(evt.Tags))
+		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
+			if !nostr.IsValidPublicKeyHex(tag[1]) {
+				return nil, false
 			}
+			targets = append(targets, tag[1])
+		}
+		if len(targets) > 0 {
+			return &AddUser{Targets: targets}, true
 		}
 		return nil, false
 	},
 	9001: func(evt *nostr.Event) (Action, bool) {
-		if tag := evt.Tags.GetFirst([]string{"p", ""}); tag != nil {
-			if nostr.IsValidPublicKeyHex((*tag)[1]) {
-				return &RemoveUser{
-					Target: (*tag)[1],
-				}, true
+		targets := make([]string, 0, len(evt.Tags))
+		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
+			if !nostr.IsValidPublicKeyHex(tag[1]) {
+				return nil, false
 			}
+			targets = append(targets, tag[1])
+		}
+		if len(targets) > 0 {
+			return &RemoveUser{Targets: targets}, true
 		}
 		return nil, false
 	},
@@ -50,39 +56,56 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 		return nil, false
 	},
 	9003: func(evt *nostr.Event) (Action, bool) {
-		var perm Permission
-		if tag := evt.Tags.GetFirst([]string{"permission", ""}); tag != nil {
-			perm = (*tag)[1]
-		}
-		if _, ok := availablePermissions[perm]; !ok {
-			return nil, false
-		}
-		if tag := evt.Tags.GetFirst([]string{"p", ""}); tag != nil {
-			if nostr.IsValidPublicKeyHex((*tag)[1]) {
-				return &AddPermission{
-					Target:     (*tag)[1],
-					Permission: perm,
-				}, true
+		nTags := len(evt.Tags)
+
+		permissions := make([]string, 0, nTags-1)
+		for _, tag := range evt.Tags.GetAll([]string{"permission", ""}) {
+			if _, ok := availablePermissions[tag[1]]; ok {
+				return nil, false
 			}
+			permissions = append(permissions, tag[1])
 		}
+
+		targets := make([]string, 0, nTags-1)
+		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
+			if !nostr.IsValidPublicKeyHex(tag[1]) {
+				return nil, false
+			}
+			targets = append(targets, tag[1])
+		}
+
+		if len(permissions) > 0 && len(targets) > 0 {
+			return &AddPermission{Targets: targets, Permissions: permissions}, true
+		}
+
 		return nil, false
 	},
 	9004: func(evt *nostr.Event) (Action, bool) {
-		var perm Permission
-		if tag := evt.Tags.GetFirst([]string{"permission", ""}); tag != nil {
-			perm = (*tag)[1]
-		}
-		if _, ok := availablePermissions[perm]; !ok {
-			return nil, false
-		}
-		if tag := evt.Tags.GetFirst([]string{"p", ""}); tag != nil {
-			if nostr.IsValidPublicKeyHex((*tag)[1]) {
-				return &RemovePermission{
-					Target:     (*tag)[1],
-					Permission: perm,
-				}, true
+		nTags := len(evt.Tags)
+
+		permissions := make([]string, 0, nTags-1)
+		for _, tag := range evt.Tags.GetAll([]string{"permission", ""}) {
+			if _, ok := availablePermissions[tag[1]]; ok {
+				return nil, false
 			}
+			permissions = append(permissions, tag[1])
 		}
+
+		targets := make([]string, 0, nTags-1)
+		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
+			if !nostr.IsValidPublicKeyHex(tag[1]) {
+				return nil, false
+			}
+			if tag[1] == s.RelayPubkey {
+				continue
+			}
+			targets = append(targets, tag[1])
+		}
+
+		if len(permissions) > 0 && len(targets) > 0 {
+			return &RemovePermission{Targets: targets, Permissions: permissions}, true
+		}
+
 		return nil, false
 	},
 	9005: func(evt *nostr.Event) (Action, bool) {
@@ -100,9 +123,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 			}
 		}
 
-		return &DeleteEvent{
-			Targets: targets,
-		}, true
+		return &DeleteEvent{Targets: targets}, true
 	},
 }
 
@@ -115,23 +136,30 @@ func (DeleteEvent) PermissionRequired() Permission { return PermDeleteEvent }
 func (a DeleteEvent) Apply(group *Group)           {}
 
 type AddUser struct {
-	Target string
+	Targets []string
 }
 
 func (AddUser) Name() string                   { return "add-user" }
 func (AddUser) PermissionRequired() Permission { return PermAddUser }
 func (a AddUser) Apply(group *Group) {
-	group.Members[a.Target] = emptyRole
+	for _, target := range a.Targets {
+		group.Members[target] = emptyRole
+	}
 }
 
 type RemoveUser struct {
-	Target string
+	Targets []string
 }
 
 func (RemoveUser) Name() string                   { return "remove-user" }
 func (RemoveUser) PermissionRequired() Permission { return PermRemoveUser }
 func (a RemoveUser) Apply(group *Group) {
-	delete(group.Members, a.Target)
+	for _, target := range a.Targets {
+		if target == s.RelayPubkey {
+			continue
+		}
+		delete(group.Members, target)
+	}
 }
 
 type EditMetadata struct {
@@ -149,34 +177,56 @@ func (a EditMetadata) Apply(group *Group) {
 }
 
 type AddPermission struct {
-	Target     string
-	Permission Permission
+	Targets     []string
+	Permissions []Permission
 }
 
 func (AddPermission) Name() string                   { return "add-permission" }
 func (AddPermission) PermissionRequired() Permission { return PermAddPermission }
 func (a AddPermission) Apply(group *Group) {
-	role, ok := group.Members[a.Target]
-	if !ok || role == emptyRole {
-		role = &Role{Permissions: make(map[string]struct{})}
-		group.Members[a.Target] = role
+	for _, target := range a.Targets {
+		role, ok := group.Members[target]
+
+		// if it's a normal user, create a new permissions object thing for this user
+		// instead of modifying the global emptyRole
+		if !ok || role == emptyRole {
+			role = &Role{Permissions: make(map[string]struct{})}
+			group.Members[target] = role
+		}
+
+		// add all permissions listed
+		for _, perm := range a.Permissions {
+			role.Permissions[perm] = struct{}{}
+		}
 	}
-	role.Permissions[a.Permission] = struct{}{}
 }
 
 type RemovePermission struct {
-	Target     string
-	Permission Permission
+	Targets     []string
+	Permissions []Permission
 }
 
 func (RemovePermission) Name() string                   { return "remove-permission" }
 func (RemovePermission) PermissionRequired() Permission { return PermRemovePermission }
 func (a RemovePermission) Apply(group *Group) {
-	role, ok := group.Members[a.Target]
-	if ok && role != emptyRole {
-		delete(role.Permissions, a.Permission)
+	for _, target := range a.Targets {
+		if target == s.RelayPubkey {
+			continue
+		}
+
+		role, ok := group.Members[target]
+		if !ok || role == emptyRole {
+			continue
+		}
+
+		// remove all permissions listed
+		for _, perm := range a.Permissions {
+			delete(role.Permissions, perm)
+		}
+
+		// if no more permissions are available, change this guy to be a normal user
 		if role.Name == "" && len(role.Permissions) == 0 {
-			group.Members[a.Target] = emptyRole
+			group.Members[target] = emptyRole
 		}
 	}
 }

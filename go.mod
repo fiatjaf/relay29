@@ -4,9 +4,9 @@ go 1.21.0
 
 require (
 	github.com/fiatjaf/eventstore v0.2.9
-	github.com/fiatjaf/khatru v0.0.9
+	github.com/fiatjaf/khatru v0.0.11
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/nbd-wtf/go-nostr v0.25.3
+	github.com/nbd-wtf/go-nostr v0.25.4
 	github.com/rs/zerolog v1.31.0
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
 	golang.org/x/time v0.4.0
@@ -43,9 +43,3 @@ require (
 	github.com/valyala/fasthttp v1.47.0 // indirect
 	golang.org/x/sys v0.14.0 // indirect
 )
-
-replace github.com/fiatjaf/khatru => /home/fiatjaf/comp/khatru
-
-replace github.com/fiatjaf/eventstore => /home/fiatjaf/comp/eventstore
-
-replace github.com/bmatsuo/lmdb-go => /home/fiatjaf/comp/lmdb-go

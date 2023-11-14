@@ -73,7 +73,7 @@ func main() {
 		requireKindAndSingleGroupID,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
-		plugins.PreventLargeTags(60),
+		plugins.PreventLargeTags(64),
 		plugins.PreventTooManyIndexableTags(6),
 		plugins.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
 		plugins.PreventTimestampsInThePast(60),

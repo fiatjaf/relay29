@@ -6,7 +6,7 @@ import (
 
 	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/khatru"
-	"github.com/fiatjaf/khatru/plugins"
+	"github.com/fiatjaf/khatru/policies"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/rs/zerolog"
@@ -49,11 +49,11 @@ func main() {
 	log.Debug().Str("path", db.Path).Msg("initialized database")
 
 	// init relay
-	relay.Name = s.RelayName
-	relay.PubKey = s.RelayPubkey
-	relay.Description = s.RelayDescription
-	relay.Contact = s.RelayContact
-	relay.IconURL = s.RelayIcon
+	relay.Info.Name = s.RelayName
+	relay.Info.PubKey = s.RelayPubkey
+	relay.Info.Description = s.RelayDescription
+	relay.Info.Contact = s.RelayContact
+	relay.Info.Icon = s.RelayIcon
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents,
@@ -67,17 +67,17 @@ func main() {
 		blockDeletesOfOldMessages,
 	)
 	relay.OverwriteFilter = append(relay.OverwriteFilter,
-		plugins.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 39000, 39001),
+		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 39000, 39001),
 	)
 	relay.RejectFilter = append(relay.RejectFilter,
 		requireKindAndSingleGroupID,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
-		plugins.PreventLargeTags(64),
-		plugins.PreventTooManyIndexableTags(6),
-		plugins.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
-		plugins.PreventTimestampsInThePast(60),
-		plugins.PreventTimestampsInTheFuture(30),
+		policies.PreventLargeTags(64),
+		policies.PreventTooManyIndexableTags(6, nil, nil),
+		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
+		policies.PreventTimestampsInThePast(60),
+		policies.PreventTimestampsInTheFuture(30),
 		requireHTag,
 		restrictWritesBasedOnGroupRules,
 		restrictInvalidModerationActions,

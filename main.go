@@ -27,7 +27,7 @@ type Settings struct {
 
 var (
 	s     Settings
-	db    = lmdb.LMDBBackend{}
+	db    = &lmdb.LMDBBackend{}
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay = khatru.NewRelay()
 )
@@ -86,6 +86,10 @@ func main() {
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		applyModerationAction,
 	)
+
+	// http routes
+	relay.Router().HandleFunc("/create", handleCreateGroup)
+	relay.Router().HandleFunc("/", handleHomepage)
 
 	log.Info().Msg("running on http://0.0.0.0:" + s.Port)
 	if err := http.ListenAndServe(":"+s.Port, relay); err != nil {

@@ -1,4 +1,4 @@
-module github.com/fiatjaf/ruley
+module github.com/fiatjaf/relay29
 
 go 1.21.0
 

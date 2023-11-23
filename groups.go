@@ -45,6 +45,7 @@ var availablePermissions = map[Permission]struct{}{
 	PermRemoveUser:       {},
 	PermAddPermission:    {},
 	PermRemovePermission: {},
+	PermEditGroupStatus:  {},
 }
 
 var (
@@ -58,6 +59,7 @@ var (
 		PermRemoveUser:       {},
 		PermAddPermission:    {},
 		PermRemovePermission: {},
+		PermEditGroupStatus:  {},
 	}}
 
 	// used for normal members without admin powers, not displayed

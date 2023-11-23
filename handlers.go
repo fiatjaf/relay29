@@ -40,6 +40,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		CreatedAt: nostr.Now(),
 		Kind:      9003,
 		Tags: nostr.Tags{
+			nostr.Tag{"h", groupId},
 			nostr.Tag{"p", pubkey},
 			nostr.Tag{"permission", PermAddUser},
 			nostr.Tag{"permission", PermRemoveUser},
@@ -51,11 +52,13 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	if err := ownerPermissions.Sign(s.RelayPrivkey); err != nil {
-		http.Error(w, "error signing", 500)
+		log.Error().Err(err).Msg("error signing group creation event")
+		http.Error(w, "error signing group creation event: "+err.Error(), 500)
 		return
 	}
 
 	if err := relay.AddEvent(r.Context(), ownerPermissions); err != nil {
+		log.Error().Err(err).Stringer("event", ownerPermissions).Msg("failed to save group creation event")
 		http.Error(w, "failed to save group creation event", 501)
 		return
 	}

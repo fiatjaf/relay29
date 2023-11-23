@@ -1,41 +1,44 @@
 package main
 
-import "github.com/nbd-wtf/go-nostr"
+import (
+	"fmt"
+
+	"github.com/nbd-wtf/go-nostr"
+)
 
 type Action interface {
-	Name() string
 	Apply(group *Group)
-	PermissionRequired() Permission
+	PermissionName() Permission
 }
 
-var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
-	9000: func(evt *nostr.Event) (Action, bool) {
+var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
+	9000: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
-				return nil, false
+				return nil, fmt.Errorf("")
 			}
 			targets = append(targets, tag[1])
 		}
 		if len(targets) > 0 {
-			return &AddUser{Targets: targets}, true
+			return &AddUser{Targets: targets}, nil
 		}
-		return nil, false
+		return nil, fmt.Errorf("missing 'p' tags")
 	},
-	9001: func(evt *nostr.Event) (Action, bool) {
+	9001: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
-				return nil, false
+				return nil, fmt.Errorf("invalid public key hex")
 			}
 			targets = append(targets, tag[1])
 		}
 		if len(targets) > 0 {
-			return &RemoveUser{Targets: targets}, true
+			return &RemoveUser{Targets: targets}, nil
 		}
-		return nil, false
+		return nil, fmt.Errorf("missing 'p' tags")
 	},
-	9002: func(evt *nostr.Event) (Action, bool) {
+	9002: func(evt *nostr.Event) (Action, error) {
 		ok := false
 		edit := EditMetadata{}
 		if t := evt.Tags.GetFirst([]string{"name", ""}); t != nil {
@@ -51,17 +54,17 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 			ok = true
 		}
 		if ok {
-			return &edit, true
+			return &edit, nil
 		}
-		return nil, false
+		return nil, fmt.Errorf("missing metadata tags")
 	},
-	9003: func(evt *nostr.Event) (Action, bool) {
+	9003: func(evt *nostr.Event) (Action, error) {
 		nTags := len(evt.Tags)
 
 		permissions := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"permission", ""}) {
-			if _, ok := availablePermissions[tag[1]]; ok {
-				return nil, false
+			if _, ok := availablePermissions[tag[1]]; !ok {
+				return nil, fmt.Errorf("unknown permission '%s'", tag[1])
 			}
 			permissions = append(permissions, tag[1])
 		}
@@ -69,24 +72,24 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 		targets := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
-				return nil, false
+				return nil, fmt.Errorf("invalid public key hex")
 			}
 			targets = append(targets, tag[1])
 		}
 
 		if len(permissions) > 0 && len(targets) > 0 {
-			return &AddPermission{Targets: targets, Permissions: permissions}, true
+			return &AddPermission{Targets: targets, Permissions: permissions}, nil
 		}
 
-		return nil, false
+		return nil, fmt.Errorf("")
 	},
-	9004: func(evt *nostr.Event) (Action, bool) {
+	9004: func(evt *nostr.Event) (Action, error) {
 		nTags := len(evt.Tags)
 
 		permissions := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"permission", ""}) {
-			if _, ok := availablePermissions[tag[1]]; ok {
-				return nil, false
+			if _, ok := availablePermissions[tag[1]]; !ok {
+				return nil, fmt.Errorf("unknown permission '%s'", tag[1])
 			}
 			permissions = append(permissions, tag[1])
 		}
@@ -94,7 +97,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 		targets := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
-				return nil, false
+				return nil, fmt.Errorf("invalid public key hex")
 			}
 			if tag[1] == s.RelayPubkey {
 				continue
@@ -103,15 +106,15 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 		}
 
 		if len(permissions) > 0 && len(targets) > 0 {
-			return &RemovePermission{Targets: targets, Permissions: permissions}, true
+			return &RemovePermission{Targets: targets, Permissions: permissions}, nil
 		}
 
-		return nil, false
+		return nil, fmt.Errorf("")
 	},
-	9005: func(evt *nostr.Event) (Action, bool) {
+	9005: func(evt *nostr.Event) (Action, error) {
 		tags := evt.Tags.GetAll([]string{"e", ""})
 		if len(tags) == 0 {
-			return nil, false
+			return nil, fmt.Errorf("missing 'e' tag")
 		}
 
 		targets := make([]string, len(tags))
@@ -119,13 +122,13 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 			if nostr.IsValidPublicKeyHex(tag[1]) {
 				targets[i] = tag[1]
 			} else {
-				return nil, false
+				return nil, fmt.Errorf("invalid event id hex")
 			}
 		}
 
-		return &DeleteEvent{Targets: targets}, true
+		return &DeleteEvent{Targets: targets}, nil
 	},
-	9006: func(evt *nostr.Event) (Action, bool) {
+	9006: func(evt *nostr.Event) (Action, error) {
 		egs := EditGroupStatus{}
 
 		egs.Public = evt.Tags.GetFirst([]string{"public"}) != nil
@@ -135,18 +138,18 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 
 		// disallow contradictions
 		if egs.Public && egs.Private {
-			return nil, false
+			return nil, fmt.Errorf("contradiction")
 		}
 		if egs.Open && egs.Closed {
-			return nil, false
+			return nil, fmt.Errorf("contradiction")
 		}
 
 		// TODO remove this once we start supporting private groups
 		if egs.Private {
-			return nil, false
+			return nil, fmt.Errorf("private groups not yet supported")
 		}
 
-		return egs, true
+		return egs, nil
 	},
 }
 
@@ -154,16 +157,14 @@ type DeleteEvent struct {
 	Targets []string
 }
 
-func (DeleteEvent) Name() string                   { return "delete-event" }
-func (DeleteEvent) PermissionRequired() Permission { return PermDeleteEvent }
-func (a DeleteEvent) Apply(group *Group)           {}
+func (DeleteEvent) PermissionName() Permission { return PermDeleteEvent }
+func (a DeleteEvent) Apply(group *Group)       {}
 
 type AddUser struct {
 	Targets []string
 }
 
-func (AddUser) Name() string                   { return "add-user" }
-func (AddUser) PermissionRequired() Permission { return PermAddUser }
+func (AddUser) PermissionName() Permission { return PermAddUser }
 func (a AddUser) Apply(group *Group) {
 	for _, target := range a.Targets {
 		group.Members[target] = emptyRole
@@ -174,8 +175,7 @@ type RemoveUser struct {
 	Targets []string
 }
 
-func (RemoveUser) Name() string                   { return "remove-user" }
-func (RemoveUser) PermissionRequired() Permission { return PermRemoveUser }
+func (RemoveUser) PermissionName() Permission { return PermRemoveUser }
 func (a RemoveUser) Apply(group *Group) {
 	for _, target := range a.Targets {
 		if target == s.RelayPubkey {
@@ -191,8 +191,7 @@ type EditMetadata struct {
 	AboutValue   string
 }
 
-func (EditMetadata) Name() string                   { return "edit-metadata" }
-func (EditMetadata) PermissionRequired() Permission { return PermEditMetadata }
+func (EditMetadata) PermissionName() Permission { return PermEditMetadata }
 func (a EditMetadata) Apply(group *Group) {
 	group.Name = a.NameValue
 	group.Picture = a.PictureValue
@@ -204,8 +203,7 @@ type AddPermission struct {
 	Permissions []Permission
 }
 
-func (AddPermission) Name() string                   { return "add-permission" }
-func (AddPermission) PermissionRequired() Permission { return PermAddPermission }
+func (AddPermission) PermissionName() Permission { return PermAddPermission }
 func (a AddPermission) Apply(group *Group) {
 	for _, target := range a.Targets {
 		role, ok := group.Members[target]
@@ -229,8 +227,7 @@ type RemovePermission struct {
 	Permissions []Permission
 }
 
-func (RemovePermission) Name() string                   { return "remove-permission" }
-func (RemovePermission) PermissionRequired() Permission { return PermRemovePermission }
+func (RemovePermission) PermissionName() Permission { return PermRemovePermission }
 func (a RemovePermission) Apply(group *Group) {
 	for _, target := range a.Targets {
 		if target == s.RelayPubkey {
@@ -261,8 +258,7 @@ type EditGroupStatus struct {
 	Closed  bool
 }
 
-func (EditGroupStatus) Name() string                   { return "edit-group-status" }
-func (EditGroupStatus) PermissionRequired() Permission { return PermEditGroupStatus }
+func (EditGroupStatus) PermissionName() Permission { return PermEditGroupStatus }
 func (a EditGroupStatus) Apply(group *Group) {
 	if a.Public {
 		group.Private = false

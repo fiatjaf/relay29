@@ -38,9 +38,9 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 	if !ok {
 		return true, "unknown moderation action"
 	}
-	action, ok := makeModerationAction(event)
-	if !ok {
-		return true, "invalid moderation action"
+	action, err := makeModerationAction(event)
+	if err != nil {
+		return true, "invalid moderation action: " + err.Error()
 	}
 
 	gtag := event.Tags.GetFirst([]string{"h", ""})
@@ -51,7 +51,7 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 	if !ok || role == emptyRole {
 		return true, "unknown admin"
 	}
-	if _, ok := role.Permissions[action.PermissionRequired()]; !ok {
+	if _, ok := role.Permissions[action.PermissionName()]; !ok {
 		return true, "insufficient permissions"
 	}
 	return false, ""
@@ -79,8 +79,8 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	if !ok {
 		return
 	}
-	action, ok := makeModerationAction(event)
-	if !ok {
+	action, err := makeModerationAction(event)
+	if err != nil {
 		return
 	}
 	gtag := event.Tags.GetFirst([]string{"h", ""})

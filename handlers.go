@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -42,12 +41,13 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		Kind:      9003,
 		Tags: nostr.Tags{
 			nostr.Tag{"p", pubkey},
-			nostr.Tag{"permission", "add-user"},
-			nostr.Tag{"permission", "remove-user"},
-			nostr.Tag{"permission", "edit-metadata"},
-			nostr.Tag{"permission", "add-permission"},
-			nostr.Tag{"permission", "remove-permission"},
-			nostr.Tag{"permission", "delete-event"},
+			nostr.Tag{"permission", PermAddUser},
+			nostr.Tag{"permission", PermRemoveUser},
+			nostr.Tag{"permission", PermEditMetadata},
+			nostr.Tag{"permission", PermAddPermission},
+			nostr.Tag{"permission", PermRemovePermission},
+			nostr.Tag{"permission", PermDeleteEvent},
+			nostr.Tag{"permission", PermEditGroupStatus},
 		},
 	}
 	if err := ownerPermissions.Sign(s.RelayPrivkey); err != nil {
@@ -55,12 +55,10 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.SaveEvent(r.Context(), ownerPermissions); err != nil {
+	if err := relay.AddEvent(r.Context(), ownerPermissions); err != nil {
 		http.Error(w, "failed to save group creation event", 501)
 		return
 	}
-
-	applyModerationAction(context.Background(), ownerPermissions)
 
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})
 	fmt.Fprintf(w, "group created!\n\n%s", naddr)

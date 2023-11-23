@@ -67,7 +67,7 @@ func main() {
 		blockDeletesOfOldMessages,
 	)
 	relay.OverwriteFilter = append(relay.OverwriteFilter,
-		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 39000, 39001),
+		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021, 39000, 39001),
 	)
 	relay.RejectFilter = append(relay.RejectFilter,
 		requireKindAndSingleGroupID,
@@ -75,7 +75,7 @@ func main() {
 	relay.RejectEvent = append(relay.RejectEvent,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, nil, nil),
-		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005),
+		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021),
 		policies.PreventTimestampsInThePast(60),
 		policies.PreventTimestampsInTheFuture(30),
 		requireHTag,
@@ -85,6 +85,7 @@ func main() {
 	)
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		applyModerationAction,
+		reactToJoinRequest,
 	)
 
 	// http routes

@@ -26,6 +26,20 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 			if group.Picture != "" {
 				evt.Tags = append(evt.Tags, nostr.Tag{"picture", group.Picture})
 			}
+
+			// status
+			if group.Private {
+				evt.Tags = append(evt.Tags, nostr.Tag{"private"})
+			} else {
+				evt.Tags = append(evt.Tags, nostr.Tag{"public"})
+			}
+			if group.Closed {
+				evt.Tags = append(evt.Tags, nostr.Tag{"closed"})
+			} else {
+				evt.Tags = append(evt.Tags, nostr.Tag{"open"})
+			}
+
+			// sign
 			evt.Sign(s.RelayPrivkey)
 			ch <- evt
 		}

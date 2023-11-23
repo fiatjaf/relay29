@@ -89,6 +89,34 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	action.Apply(group)
 }
 
+func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
+	if event.Kind != 9021 {
+		return
+	}
+	gtag := event.Tags.GetFirst([]string{"h", ""})
+	groupId := (*gtag)[1]
+	group := loadGroup(ctx, groupId)
+
+	if !group.Closed {
+		// immediatelly add the requester
+		addUser := &nostr.Event{
+			CreatedAt: nostr.Now(),
+			Kind:      9000,
+			Tags: nostr.Tags{
+				nostr.Tag{"p", event.PubKey},
+			},
+		}
+		if err := addUser.Sign(s.RelayPrivkey); err != nil {
+			log.Error().Err(err).Msg("failed to sign add-user event")
+			return
+		}
+		if err := relay.AddEvent(ctx, addUser); err != nil {
+			log.Error().Err(err).Msg("failed to add user who requested to join")
+			return
+		}
+	}
+}
+
 func blockDeletesOfOldMessages(ctx context.Context, target, deletion *nostr.Event) (acceptDeletion bool, msg string) {
 	if target.CreatedAt < nostr.Now()-60*60*2 /* 2 hours */ {
 		return false, "can't delete old event, contact relay admin"

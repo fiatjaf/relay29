@@ -133,10 +133,16 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 		egs.Open = evt.Tags.GetFirst([]string{"open"}) != nil
 		egs.Closed = evt.Tags.GetFirst([]string{"closed"}) != nil
 
+		// disallow contradictions
 		if egs.Public && egs.Private {
 			return nil, false
 		}
 		if egs.Open && egs.Closed {
+			return nil, false
+		}
+
+		// TODO remove this once we start supporting private groups
+		if egs.Private {
 			return nil, false
 		}
 

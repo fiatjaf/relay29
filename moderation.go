@@ -125,6 +125,23 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, bool){
 
 		return &DeleteEvent{Targets: targets}, true
 	},
+	9006: func(evt *nostr.Event) (Action, bool) {
+		egs := EditGroupStatus{}
+
+		egs.Public = evt.Tags.GetFirst([]string{"public"}) != nil
+		egs.Private = evt.Tags.GetFirst([]string{"private"}) != nil
+		egs.Open = evt.Tags.GetFirst([]string{"open"}) != nil
+		egs.Closed = evt.Tags.GetFirst([]string{"closed"}) != nil
+
+		if egs.Public && egs.Private {
+			return nil, false
+		}
+		if egs.Open && egs.Closed {
+			return nil, false
+		}
+
+		return egs, true
+	},
 }
 
 type DeleteEvent struct {
@@ -228,5 +245,28 @@ func (a RemovePermission) Apply(group *Group) {
 		if role.Name == "" && len(role.Permissions) == 0 {
 			group.Members[target] = emptyRole
 		}
+	}
+}
+
+type EditGroupStatus struct {
+	Public  bool
+	Private bool
+	Open    bool
+	Closed  bool
+}
+
+func (EditGroupStatus) Name() string                   { return "edit-group-status" }
+func (EditGroupStatus) PermissionRequired() Permission { return PermEditGroupStatus }
+func (a EditGroupStatus) Apply(group *Group) {
+	if a.Public {
+		group.Private = false
+	} else if a.Private {
+		group.Private = true
+	}
+
+	if a.Open {
+		group.Closed = false
+	} else if a.Closed {
+		group.Closed = true
 	}
 }

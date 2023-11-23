@@ -15,6 +15,8 @@ type Group struct {
 	Picture string
 	About   string
 	Members map[string]*Role
+	Private bool
+	Closed  bool
 
 	bucket *rate.Limiter
 }
@@ -33,6 +35,7 @@ const (
 	PermRemoveUser       Permission = "remove-user"
 	PermAddPermission    Permission = "add-permission"
 	PermRemovePermission Permission = "remove-permission"
+	PermEditGroupStatus  Permission = "edit-group-status"
 )
 
 var availablePermissions = map[Permission]struct{}{

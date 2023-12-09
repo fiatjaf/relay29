@@ -3,10 +3,10 @@ module github.com/fiatjaf/relay29
 go 1.21.0
 
 require (
-	github.com/fiatjaf/eventstore v0.2.11
-	github.com/fiatjaf/khatru v0.0.13
+	github.com/fiatjaf/eventstore v0.2.14
+	github.com/fiatjaf/khatru v0.2.0
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/nbd-wtf/go-nostr v0.25.7
+	github.com/nbd-wtf/go-nostr v0.26.4
 	github.com/rs/zerolog v1.31.0
 	github.com/theplant/htmlgo v1.0.3
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
@@ -14,8 +14,8 @@ require (
 )
 
 require (
+	github.com/PowerDNS/lmdb-go v1.9.2 // indirect
 	github.com/andybalholm/brotli v1.0.5 // indirect
-	github.com/bmatsuo/lmdb-go v1.8.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.2 // indirect

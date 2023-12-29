@@ -1,10 +1,11 @@
 module github.com/fiatjaf/relay29
 
-go 1.21.0
+go 1.21.4
 
 require (
 	github.com/fiatjaf/eventstore v0.2.14
 	github.com/fiatjaf/khatru v0.2.0
+	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.27.4
 	github.com/rs/zerolog v1.31.0

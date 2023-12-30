@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 
-	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
 	"golang.org/x/exp/slices"
 )
@@ -43,27 +42,26 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 	}
 
 	ch := make(chan *nostr.Event, 1)
-	if slices.Contains(filter.Kinds, 39000) {
-		if _, ok := filter.Tags["d"]; !ok {
-			// no "d" tag specified, return everything
-			groupMetadataEvents, _ := db.QueryEvents(ctx, nostr.Filter{Limit: db.MaxLimit, Kinds: []int{9002}})
-			alreadySeen := set.NewSliceSet[string]()
-			for evt := range groupMetadataEvents {
-				d := evt.Tags.GetD()
-				if !alreadySeen.Has(d) {
-					alreadySeen.Add(d)
-					go func(d string) {
-						ch <- makeEvent39000(loadGroup(ctx, d))
-					}(d)
+
+	go func() {
+		if slices.Contains(filter.Kinds, 39000) {
+			if _, ok := filter.Tags["d"]; !ok {
+				// no "d" tag specified, return everything
+				for _, group := range groups {
+					ch <- makeEvent39000(group)
+				}
+			} else {
+				for _, groupId := range filter.Tags["d"] {
+					if group := getGroup(groupId); group != nil {
+						ch <- makeEvent39000(group)
+					}
 				}
 			}
 		}
 
-		for _, groupId := range filter.Tags["d"] {
-			ch <- makeEvent39000(loadGroup(ctx, groupId))
-		}
-	}
-	close(ch)
+		close(ch)
+	}()
+
 	return ch, nil
 }
 
@@ -71,7 +69,11 @@ func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.E
 	ch := make(chan *nostr.Event, 1)
 	if slices.Contains(filter.Kinds, 39001) {
 		for _, groupId := range filter.Tags["d"] {
-			group := loadGroup(ctx, groupId)
+			group := getGroup(groupId)
+			if group == nil {
+				continue
+			}
+
 			evt := &nostr.Event{
 				Kind:      39001,
 				CreatedAt: nostr.Now(),

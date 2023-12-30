@@ -6,20 +6,23 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
-func requireHTag(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func requireHTagForExistingGroup(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	gtag := event.Tags.GetFirst([]string{"h", ""})
 	if gtag == nil {
 		return true, "missing group (`h`) tag"
 	}
+
+	if group := getGroupFromEvent(event); group == nil {
+		return true, "group '" + (*gtag)[1] + "' doesn't exist"
+	}
+
 	return false, ""
 }
 
 func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	// check it only for normal write events
 	if event.Kind == 9 || event.Kind == 11 {
-		gtag := event.Tags.GetFirst([]string{"h", ""})
-		groupId := (*gtag)[1]
-		group := loadGroup(ctx, groupId)
+		group := getGroupFromEvent(event)
 
 		// only members can write
 		if _, isMember := group.Members[event.PubKey]; !isMember {
@@ -43,10 +46,7 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 		return true, "invalid moderation action: " + err.Error()
 	}
 
-	gtag := event.Tags.GetFirst([]string{"h", ""})
-	groupId := (*gtag)[1]
-	group := loadGroup(ctx, groupId)
-
+	group := getGroupFromEvent(event)
 	role, ok := group.Members[event.PubKey]
 	if !ok || role == emptyRole {
 		return true, "unknown admin"
@@ -58,10 +58,7 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 }
 
 func rateLimit(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	gtag := event.Tags.GetFirst([]string{"h", ""})
-	groupId := (*gtag)[1]
-	group := loadGroup(ctx, groupId)
-
+	group := getGroupFromEvent(event)
 	if rsv := group.bucket.Reserve(); rsv.Delay() != 0 {
 		rsv.Cancel()
 		return true, "rate-limited"
@@ -83,9 +80,7 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	if err != nil {
 		return
 	}
-	gtag := event.Tags.GetFirst([]string{"h", ""})
-	groupId := (*gtag)[1]
-	group := loadGroup(ctx, groupId)
+	group := getGroupFromEvent(event)
 	action.Apply(group)
 }
 
@@ -93,10 +88,8 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 	if event.Kind != 9021 {
 		return
 	}
-	gtag := event.Tags.GetFirst([]string{"h", ""})
-	groupId := (*gtag)[1]
-	group := loadGroup(ctx, groupId)
 
+	group := getGroupFromEvent(event)
 	if !group.Closed {
 		// immediatelly add the requester
 		addUser := &nostr.Event{

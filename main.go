@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 
@@ -48,6 +49,9 @@ func main() {
 	}
 	log.Debug().Str("path", db.Path).Msg("initialized database")
 
+	// load all groups
+	loadGroups(context.Background())
+
 	// init relay
 	relay.Info.Name = s.RelayName
 	relay.Info.PubKey = s.RelayPubkey
@@ -73,12 +77,12 @@ func main() {
 		requireKindAndSingleGroupID,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
+		requireHTagForExistingGroup,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, nil, nil),
 		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021),
 		policies.PreventTimestampsInThePast(60),
 		policies.PreventTimestampsInTheFuture(30),
-		requireHTag,
 		restrictWritesBasedOnGroupRules,
 		restrictInvalidModerationActions,
 		rateLimit,

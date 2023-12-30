@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/fiatjaf/eventstore"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
 	"github.com/theplant/htmlgo"
@@ -29,12 +28,15 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("id", groupId).Str("owner", pubkey).Msg("making group")
 
-	vrelay := eventstore.RelayWrapper{Store: db}
-	res, _ := vrelay.QuerySync(r.Context(), nostr.Filter{Tags: nostr.TagMap{"#h": []string{groupId}}, Limit: 1})
-	if len(res) > 0 {
+	group := getGroup(groupId)
+	if group != nil {
 		http.Error(w, "group already exists", 403)
 		return
 	}
+
+	// create group right here
+	group = newGroup(groupId)
+	addGroup(group)
 
 	ownerPermissions := &nostr.Event{
 		CreatedAt: nostr.Now(),
@@ -64,5 +66,5 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})
-	fmt.Fprintf(w, "group created!\n\n%s", naddr)
+	fmt.Fprintf(w, "group created!\n\n%s\nid: %s", naddr, groupId)
 }

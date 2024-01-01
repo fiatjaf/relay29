@@ -43,8 +43,6 @@ github.com/fasthttp/websocket v1.5.7 h1:0a6o2OfeATvtGgoMKleURhLT6JqWPg7fYfWnH4KH
 github.com/fasthttp/websocket v1.5.7/go.mod h1:bC4fxSono9czeXHQUVKxsC0sNjbm7lPJR04GDFqClfU=
 github.com/fiatjaf/eventstore v0.3.5 h1:otlG2L9G7wbMXPo5dqSg8zVNN9djJK2JpdQ4/j2LnMk=
 github.com/fiatjaf/eventstore v0.3.5/go.mod h1:iqGHNXOMz+ztLHXxG13WBXgz/2bG0q/p1L3olof4dYo=
-github.com/fiatjaf/khatru v0.2.3 h1:ndNSwpN7z3HTQbr5jBGVO05xpiMTE1WNOtGHZ/301Ko=
-github.com/fiatjaf/khatru v0.2.3/go.mod h1:DOmxC1Sc6ojuMtzBJarJP8UBioycIaQDyX7qh2CcxKI=
 github.com/fiatjaf/set v0.0.3 h1:LoawhcGoD504baBw0TwVJTQemzt15QYuxutzzWl2kgE=
 github.com/fiatjaf/set v0.0.3/go.mod h1:hdSwBrO+CwMEbYQAMaHtsib30KQLDtVjbX/1OgDK3tY=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=

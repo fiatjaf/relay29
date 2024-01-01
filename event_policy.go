@@ -82,6 +82,12 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	}
 	group := getGroupFromEvent(event)
 	action.Apply(group)
+
+	if event.Kind == nostr.KindSimpleGroupEditMetadata || event.Kind == nostr.KindSimpleGroupEditGroupStatus {
+		evt := group.ToMetadataEvent()
+		evt.Sign(s.RelayPrivkey)
+		relay.BroadcastEvent(evt)
+	}
 }
 
 func reactToJoinRequest(ctx context.Context, event *nostr.Event) {

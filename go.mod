@@ -45,3 +45,5 @@ require (
 )
 
 replace github.com/nbd-wtf/go-nostr => /home/fiatjaf/comp/go-nostr
+
+replace github.com/fiatjaf/khatru => /home/fiatjaf/comp/khatru

@@ -15,14 +15,14 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				for _, group := range groups {
-					evt := group.MetadataEvent()
+					evt := group.ToMetadataEvent()
 					evt.Sign(s.RelayPrivkey)
 					ch <- evt
 				}
 			} else {
 				for _, groupId := range filter.Tags["d"] {
 					if group := getGroup(groupId); group != nil {
-						evt := group.MetadataEvent()
+						evt := group.ToMetadataEvent()
 						evt.Sign(s.RelayPrivkey)
 						ch <- evt
 					}

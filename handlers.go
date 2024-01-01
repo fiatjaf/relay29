@@ -9,6 +9,7 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip19"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"github.com/theplant/htmlgo"
 )
 
@@ -44,13 +45,13 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		Tags: nostr.Tags{
 			nostr.Tag{"h", groupId},
 			nostr.Tag{"p", pubkey},
-			nostr.Tag{"permission", PermAddUser},
-			nostr.Tag{"permission", PermRemoveUser},
-			nostr.Tag{"permission", PermEditMetadata},
-			nostr.Tag{"permission", PermAddPermission},
-			nostr.Tag{"permission", PermRemovePermission},
-			nostr.Tag{"permission", PermDeleteEvent},
-			nostr.Tag{"permission", PermEditGroupStatus},
+			nostr.Tag{"permission", nip29.PermAddUser},
+			nostr.Tag{"permission", nip29.PermRemoveUser},
+			nostr.Tag{"permission", nip29.PermEditMetadata},
+			nostr.Tag{"permission", nip29.PermAddPermission},
+			nostr.Tag{"permission", nip29.PermRemovePermission},
+			nostr.Tag{"permission", nip29.PermDeleteEvent},
+			nostr.Tag{"permission", nip29.PermEditGroupStatus},
 		},
 	}
 	if err := ownerPermissions.Sign(s.RelayPrivkey); err != nil {

@@ -9,48 +9,25 @@ import (
 
 	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"golang.org/x/time/rate"
 )
 
 type Group struct {
-	ID      string
-	Name    string
-	Picture string
-	About   string
-	Members map[string]*Role
-	Private bool
-	Closed  bool
-
+	nip29.Group
 	bucket *rate.Limiter
 }
 
-type Role struct {
-	Name        string
-	Permissions map[Permission]struct{}
-}
-
-type Permission = string
-
-const (
-	PermAddUser          Permission = "add-user"
-	PermEditMetadata     Permission = "edit-metadata"
-	PermDeleteEvent      Permission = "delete-event"
-	PermRemoveUser       Permission = "remove-user"
-	PermAddPermission    Permission = "add-permission"
-	PermRemovePermission Permission = "remove-permission"
-	PermEditGroupStatus  Permission = "edit-group-status"
-)
-
-var availablePermissions = map[Permission]struct{}{
-	PermAddUser:          {},
-	PermEditMetadata:     {},
-	PermDeleteEvent:      {},
-	PermRemoveUser:       {},
-	PermAddPermission:    {},
-	PermRemovePermission: {},
-	PermEditGroupStatus:  {},
+var availablePermissions = map[nip29.Permission]struct{}{
+	nip29.PermAddUser:          {},
+	nip29.PermEditMetadata:     {},
+	nip29.PermDeleteEvent:      {},
+	nip29.PermRemoveUser:       {},
+	nip29.PermAddPermission:    {},
+	nip29.PermRemovePermission: {},
+	nip29.PermEditGroupStatus:  {},
 }
 
 var (
@@ -58,25 +35,30 @@ var (
 	groupsLock sync.Mutex
 
 	// used for the default role, the actual relay, hidden otherwise
-	masterRole *Role = &Role{"master", map[Permission]struct{}{
-		PermAddUser:          {},
-		PermEditMetadata:     {},
-		PermDeleteEvent:      {},
-		PermRemoveUser:       {},
-		PermAddPermission:    {},
-		PermRemovePermission: {},
-		PermEditGroupStatus:  {},
-	}}
+	masterRole *nip29.Role = &nip29.Role{
+		Name: "master",
+		Permissions: map[nip29.Permission]struct{}{
+			nip29.PermAddUser:          {},
+			nip29.PermEditMetadata:     {},
+			nip29.PermDeleteEvent:      {},
+			nip29.PermRemoveUser:       {},
+			nip29.PermAddPermission:    {},
+			nip29.PermRemovePermission: {},
+			nip29.PermEditGroupStatus:  {},
+		},
+	}
 
 	// used for normal members without admin powers, not displayed
-	emptyRole *Role = nil
+	emptyRole *nip29.Role = nil
 )
 
 func newGroup(id string) *Group {
 	return &Group{
-		ID: id,
-		Members: map[string]*Role{
-			s.RelayPubkey: masterRole,
+		Group: nip29.Group{
+			ID: id,
+			Members: map[string]*nip29.Role{
+				s.RelayPubkey: masterRole,
+			},
 		},
 
 		// very strict rate limits

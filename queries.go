@@ -8,39 +8,6 @@ import (
 )
 
 func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
-	makeEvent39000 := func(group *Group) *nostr.Event {
-		evt := &nostr.Event{
-			Kind:      39000,
-			CreatedAt: nostr.Now(),
-			Content:   group.About,
-			Tags: nostr.Tags{
-				nostr.Tag{"d", group.ID},
-			},
-		}
-		if group.Name != "" {
-			evt.Tags = append(evt.Tags, nostr.Tag{"name", group.Name})
-		}
-		if group.Picture != "" {
-			evt.Tags = append(evt.Tags, nostr.Tag{"picture", group.Picture})
-		}
-
-		// status
-		if group.Private {
-			evt.Tags = append(evt.Tags, nostr.Tag{"private"})
-		} else {
-			evt.Tags = append(evt.Tags, nostr.Tag{"public"})
-		}
-		if group.Closed {
-			evt.Tags = append(evt.Tags, nostr.Tag{"closed"})
-		} else {
-			evt.Tags = append(evt.Tags, nostr.Tag{"open"})
-		}
-
-		// sign
-		evt.Sign(s.RelayPrivkey)
-		return evt
-	}
-
 	ch := make(chan *nostr.Event, 1)
 
 	go func() {
@@ -48,12 +15,16 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				for _, group := range groups {
-					ch <- makeEvent39000(group)
+					evt := group.MetadataEvent()
+					evt.Sign(s.RelayPrivkey)
+					ch <- evt
 				}
 			} else {
 				for _, groupId := range filter.Tags["d"] {
 					if group := getGroup(groupId); group != nil {
-						ch <- makeEvent39000(group)
+						evt := group.MetadataEvent()
+						evt.Sign(s.RelayPrivkey)
+						ch <- evt
 					}
 				}
 			}

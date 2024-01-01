@@ -4,15 +4,16 @@ import (
 	"fmt"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
 type Action interface {
 	Apply(group *Group)
-	PermissionName() Permission
+	PermissionName() nip29.Permission
 }
 
 var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
-	9000: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupAddUser: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
@@ -25,7 +26,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		}
 		return nil, fmt.Errorf("missing 'p' tags")
 	},
-	9001: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupRemoveUser: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
 			if !nostr.IsValidPublicKeyHex(tag[1]) {
@@ -38,7 +39,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		}
 		return nil, fmt.Errorf("missing 'p' tags")
 	},
-	9002: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupEditMetadata: func(evt *nostr.Event) (Action, error) {
 		ok := false
 		edit := EditMetadata{}
 		if t := evt.Tags.GetFirst([]string{"name", ""}); t != nil {
@@ -58,7 +59,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		}
 		return nil, fmt.Errorf("missing metadata tags")
 	},
-	9003: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupAddPermission: func(evt *nostr.Event) (Action, error) {
 		nTags := len(evt.Tags)
 
 		permissions := make([]string, 0, nTags-1)
@@ -83,7 +84,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 
 		return nil, fmt.Errorf("")
 	},
-	9004: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupRemovePermission: func(evt *nostr.Event) (Action, error) {
 		nTags := len(evt.Tags)
 
 		permissions := make([]string, 0, nTags-1)
@@ -111,7 +112,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 
 		return nil, fmt.Errorf("")
 	},
-	9005: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupDeleteEvent: func(evt *nostr.Event) (Action, error) {
 		tags := evt.Tags.GetAll([]string{"e", ""})
 		if len(tags) == 0 {
 			return nil, fmt.Errorf("missing 'e' tag")
@@ -128,7 +129,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 
 		return &DeleteEvent{Targets: targets}, nil
 	},
-	9006: func(evt *nostr.Event) (Action, error) {
+	nostr.KindSimpleGroupEditGroupStatus: func(evt *nostr.Event) (Action, error) {
 		egs := EditGroupStatus{}
 
 		egs.Public = evt.Tags.GetFirst([]string{"public"}) != nil
@@ -157,14 +158,14 @@ type DeleteEvent struct {
 	Targets []string
 }
 
-func (DeleteEvent) PermissionName() Permission { return PermDeleteEvent }
-func (a DeleteEvent) Apply(group *Group)       {}
+func (DeleteEvent) PermissionName() nip29.Permission { return nip29.PermDeleteEvent }
+func (a DeleteEvent) Apply(group *Group)             {}
 
 type AddUser struct {
 	Targets []string
 }
 
-func (AddUser) PermissionName() Permission { return PermAddUser }
+func (AddUser) PermissionName() nip29.Permission { return nip29.PermAddUser }
 func (a AddUser) Apply(group *Group) {
 	for _, target := range a.Targets {
 		group.Members[target] = emptyRole
@@ -175,7 +176,7 @@ type RemoveUser struct {
 	Targets []string
 }
 
-func (RemoveUser) PermissionName() Permission { return PermRemoveUser }
+func (RemoveUser) PermissionName() nip29.Permission { return nip29.PermRemoveUser }
 func (a RemoveUser) Apply(group *Group) {
 	for _, target := range a.Targets {
 		if target == s.RelayPubkey {
@@ -191,7 +192,7 @@ type EditMetadata struct {
 	AboutValue   string
 }
 
-func (EditMetadata) PermissionName() Permission { return PermEditMetadata }
+func (EditMetadata) PermissionName() nip29.Permission { return nip29.PermEditMetadata }
 func (a EditMetadata) Apply(group *Group) {
 	group.Name = a.NameValue
 	group.Picture = a.PictureValue
@@ -200,10 +201,10 @@ func (a EditMetadata) Apply(group *Group) {
 
 type AddPermission struct {
 	Targets     []string
-	Permissions []Permission
+	Permissions []nip29.Permission
 }
 
-func (AddPermission) PermissionName() Permission { return PermAddPermission }
+func (AddPermission) PermissionName() nip29.Permission { return nip29.PermAddPermission }
 func (a AddPermission) Apply(group *Group) {
 	for _, target := range a.Targets {
 		role, ok := group.Members[target]
@@ -211,7 +212,7 @@ func (a AddPermission) Apply(group *Group) {
 		// if it's a normal user, create a new permissions object thing for this user
 		// instead of modifying the global emptyRole
 		if !ok || role == emptyRole {
-			role = &Role{Permissions: make(map[string]struct{})}
+			role = &nip29.Role{Permissions: make(map[string]struct{})}
 			group.Members[target] = role
 		}
 
@@ -224,10 +225,10 @@ func (a AddPermission) Apply(group *Group) {
 
 type RemovePermission struct {
 	Targets     []string
-	Permissions []Permission
+	Permissions []nip29.Permission
 }
 
-func (RemovePermission) PermissionName() Permission { return PermRemovePermission }
+func (RemovePermission) PermissionName() nip29.Permission { return nip29.PermRemovePermission }
 func (a RemovePermission) Apply(group *Group) {
 	for _, target := range a.Targets {
 		if target == s.RelayPubkey {
@@ -258,7 +259,7 @@ type EditGroupStatus struct {
 	Closed  bool
 }
 
-func (EditGroupStatus) PermissionName() Permission { return PermEditGroupStatus }
+func (EditGroupStatus) PermissionName() nip29.Permission { return nip29.PermEditGroupStatus }
 func (a EditGroupStatus) Apply(group *Group) {
 	if a.Public {
 		group.Private = false

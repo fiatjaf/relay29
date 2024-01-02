@@ -41,7 +41,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 	},
 	nostr.KindSimpleGroupEditMetadata: func(evt *nostr.Event) (Action, error) {
 		ok := false
-		edit := EditMetadata{}
+		edit := EditMetadata{When: evt.CreatedAt}
 		if t := evt.Tags.GetFirst([]string{"name", ""}); t != nil {
 			edit.NameValue = (*t)[1]
 			ok = true
@@ -130,7 +130,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		return &DeleteEvent{Targets: targets}, nil
 	},
 	nostr.KindSimpleGroupEditGroupStatus: func(evt *nostr.Event) (Action, error) {
-		egs := EditGroupStatus{}
+		egs := EditGroupStatus{When: evt.CreatedAt}
 
 		egs.Public = evt.Tags.GetFirst([]string{"public"}) != nil
 		egs.Private = evt.Tags.GetFirst([]string{"private"}) != nil
@@ -190,6 +190,7 @@ type EditMetadata struct {
 	NameValue    string
 	PictureValue string
 	AboutValue   string
+	When         nostr.Timestamp
 }
 
 func (EditMetadata) PermissionName() nip29.Permission { return nip29.PermEditMetadata }
@@ -197,6 +198,7 @@ func (a EditMetadata) Apply(group *Group) {
 	group.Name = a.NameValue
 	group.Picture = a.PictureValue
 	group.About = a.AboutValue
+	group.LastMetadataUpdate = a.When
 }
 
 type AddPermission struct {
@@ -257,6 +259,7 @@ type EditGroupStatus struct {
 	Private bool
 	Open    bool
 	Closed  bool
+	When    nostr.Timestamp
 }
 
 func (EditGroupStatus) PermissionName() nip29.Permission { return nip29.PermEditGroupStatus }
@@ -272,4 +275,6 @@ func (a EditGroupStatus) Apply(group *Group) {
 	} else if a.Closed {
 		group.Closed = true
 	}
+
+	group.LastMetadataUpdate = a.When
 }

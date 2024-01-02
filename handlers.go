@@ -22,6 +22,16 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	if pfx, value, err := nip19.Decode(pubkey); err == nil && pfx == "npub" {
 		pubkey = value.(string)
 	}
+	if !nostr.IsValidPublicKeyHex(pubkey) {
+		http.Error(w, "pubkey is invalid", 400)
+		return
+	}
+
+	name := r.PostFormValue("name")
+	if name == "" {
+		http.Error(w, "name is empty", 400)
+		return
+	}
 
 	id := make([]byte, 8)
 	binary.LittleEndian.PutUint64(id, uint64(time.Now().Unix()))
@@ -39,31 +49,42 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	group = newGroup(groupId)
 	addGroup(group)
 
-	ownerPermissions := &nostr.Event{
-		CreatedAt: nostr.Now(),
-		Kind:      9003,
-		Tags: nostr.Tags{
-			nostr.Tag{"h", groupId},
-			nostr.Tag{"p", pubkey},
-			nostr.Tag{"permission", nip29.PermAddUser},
-			nostr.Tag{"permission", nip29.PermRemoveUser},
-			nostr.Tag{"permission", nip29.PermEditMetadata},
-			nostr.Tag{"permission", nip29.PermAddPermission},
-			nostr.Tag{"permission", nip29.PermRemovePermission},
-			nostr.Tag{"permission", nip29.PermDeleteEvent},
-			nostr.Tag{"permission", nip29.PermEditGroupStatus},
+	foundingEvents := []*nostr.Event{
+		{
+			CreatedAt: nostr.Now(),
+			Kind:      nostr.KindSimpleGroupAddPermission,
+			Tags: nostr.Tags{
+				nostr.Tag{"h", groupId},
+				nostr.Tag{"p", pubkey},
+				nostr.Tag{"permission", nip29.PermAddUser},
+				nostr.Tag{"permission", nip29.PermRemoveUser},
+				nostr.Tag{"permission", nip29.PermEditMetadata},
+				nostr.Tag{"permission", nip29.PermAddPermission},
+				nostr.Tag{"permission", nip29.PermRemovePermission},
+				nostr.Tag{"permission", nip29.PermDeleteEvent},
+				nostr.Tag{"permission", nip29.PermEditGroupStatus},
+			},
+		},
+		{
+			CreatedAt: nostr.Now(),
+			Kind:      nostr.KindSimpleGroupEditMetadata,
+			Tags: nostr.Tags{
+				nostr.Tag{"h", groupId},
+				nostr.Tag{"name", name},
+			},
 		},
 	}
-	if err := ownerPermissions.Sign(s.RelayPrivkey); err != nil {
-		log.Error().Err(err).Msg("error signing group creation event")
-		http.Error(w, "error signing group creation event: "+err.Error(), 500)
-		return
-	}
-
-	if err := relay.AddEvent(r.Context(), ownerPermissions); err != nil {
-		log.Error().Err(err).Stringer("event", ownerPermissions).Msg("failed to save group creation event")
-		http.Error(w, "failed to save group creation event", 501)
-		return
+	for _, evt := range foundingEvents {
+		if err := evt.Sign(s.RelayPrivkey); err != nil {
+			log.Error().Err(err).Msg("error signing group creation event")
+			http.Error(w, "error signing group creation event: "+err.Error(), 500)
+			return
+		}
+		if err := relay.AddEvent(r.Context(), evt); err != nil {
+			log.Error().Err(err).Stringer("event", evt).Msg("failed to save group creation event")
+			http.Error(w, "failed to save group creation event", 501)
+			return
+		}
 	}
 
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})

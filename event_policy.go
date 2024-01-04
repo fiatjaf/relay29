@@ -82,10 +82,23 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	group := getGroupFromEvent(event)
 	action.Apply(&group.Group)
 
-	if event.Kind == nostr.KindSimpleGroupEditMetadata || event.Kind == nostr.KindSimpleGroupEditGroupStatus {
+	// propagate new replaceable events to listeners
+	switch event.Kind {
+	case nostr.KindSimpleGroupEditMetadata, nostr.KindSimpleGroupEditGroupStatus:
 		evt := group.ToMetadataEvent()
 		evt.Sign(s.RelayPrivkey)
 		relay.BroadcastEvent(evt)
+	case nostr.KindSimpleGroupAddPermission, nostr.KindSimpleGroupRemovePermission:
+		evt := group.ToMetadataEvent()
+		evt.Sign(s.RelayPrivkey)
+		relay.BroadcastEvent(evt)
+	case nostr.KindSimpleGroupAddUser, nostr.KindSimpleGroupRemoveUser:
+		evt := group.ToMembersEvent()
+		evt.Sign(s.RelayPrivkey)
+		relay.BroadcastEvent(evt)
+	case nostr.KindSimpleGroupDeleteEvent:
+		// broadcast the actual event deletion so clients can handle it?
+		relay.BroadcastEvent(event)
 	}
 }
 

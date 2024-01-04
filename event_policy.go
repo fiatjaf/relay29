@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
+	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
 )
 
 func requireHTagForExistingGroup(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
@@ -34,21 +36,25 @@ func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (r
 }
 
 func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	if event.Kind < 9000 || event.Kind > 9020 {
-		return false, ""
-	}
-	makeModerationAction, ok := moderationActionFactories[event.Kind]
-	if !ok {
-		return true, "unknown moderation action"
-	}
-	action, err := makeModerationAction(event)
+	action, err := nip29_relay.GetModerationAction(event)
 	if err != nil {
 		return true, "invalid moderation action: " + err.Error()
 	}
 
+	// moderation action events must be new and not reused
+	if event.CreatedAt < nostr.Now()-60 {
+		return true, "moderation action is too old (older than 1 minute ago)"
+	}
+
+	// will check if the moderation event author has sufficient permissions to perform this action
+	// except for the relay owner/pubkey, that has infinite permissions already
+	if event.PubKey != s.RelayPubkey {
+		return false, ""
+	}
+
 	group := getGroupFromEvent(event)
 	role, ok := group.Members[event.PubKey]
-	if !ok || role == emptyRole {
+	if !ok || role == nip29.EmptyRole {
 		return true, "unknown admin"
 	}
 	if _, ok := role.Permissions[action.PermissionName()]; !ok {
@@ -69,19 +75,12 @@ func rateLimit(ctx context.Context, event *nostr.Event) (reject bool, msg string
 }
 
 func applyModerationAction(ctx context.Context, event *nostr.Event) {
-	if event.Kind < 9000 || event.Kind > 9020 {
-		return
-	}
-	makeModerationAction, ok := moderationActionFactories[event.Kind]
-	if !ok {
-		return
-	}
-	action, err := makeModerationAction(event)
+	action, err := nip29_relay.GetModerationAction(event)
 	if err != nil {
 		return
 	}
 	group := getGroupFromEvent(event)
-	action.Apply(group)
+	action.Apply(&group.Group)
 
 	if event.Kind == nostr.KindSimpleGroupEditMetadata || event.Kind == nostr.KindSimpleGroupEditGroupStatus {
 		evt := group.ToMetadataEvent()

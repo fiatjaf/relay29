@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"golang.org/x/exp/slices"
 )
 
@@ -15,6 +16,12 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				for _, group := range groups {
+					if group.Private {
+						continue
+					}
+					if group.Closed {
+						continue
+					}
 					evt := group.ToMetadataEvent()
 					evt.Sign(s.RelayPrivkey)
 					ch <- evt
@@ -54,10 +61,10 @@ func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.E
 				},
 			}
 			for pubkey, role := range group.Members {
-				if role != emptyRole && role != masterRole {
+				if role != nip29.EmptyRole {
 					tag := nostr.Tag{pubkey, "admin"}
 					for permName := range role.Permissions {
-						tag = append(tag, permName)
+						tag = append(tag, string(permName))
 					}
 					evt.Tags = append(evt.Tags, tag)
 				}

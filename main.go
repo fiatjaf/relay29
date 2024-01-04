@@ -64,6 +64,7 @@ func main() {
 		db.QueryEvents,
 		metadataQueryHandler,
 		adminsQueryHandler,
+		membersQueryHandler,
 	)
 	relay.CountEvents = append(relay.CountEvents, db.CountEvents)
 	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)

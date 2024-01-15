@@ -3,8 +3,8 @@ module github.com/fiatjaf/relay29
 go 1.21.4
 
 require (
-	github.com/fiatjaf/eventstore v0.3.5
-	github.com/fiatjaf/khatru v0.2.3
+	github.com/fiatjaf/eventstore v0.3.6
+	github.com/fiatjaf/khatru v0.3.0
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.28.0
@@ -31,7 +31,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/puzpuzpuz/xsync/v2 v2.5.1 // indirect
+	github.com/puzpuzpuz/xsync/v3 v3.0.2 // indirect
 	github.com/rs/cors v1.10.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/sebest/xff v0.0.0-20210106013422-671bd2870b3a // indirect
@@ -43,7 +43,3 @@ require (
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 )
-
-replace github.com/nbd-wtf/go-nostr => /home/fiatjaf/comp/go-nostr
-
-replace github.com/fiatjaf/khatru => /home/fiatjaf/comp/khatru

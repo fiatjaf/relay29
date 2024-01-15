@@ -49,16 +49,14 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 	// will check if the moderation event author has sufficient permissions to perform this action
 	// except for the relay owner/pubkey, that has infinite permissions already
 	if event.PubKey != s.RelayPubkey {
-		return false, ""
-	}
-
-	group := getGroupFromEvent(event)
-	role, ok := group.Members[event.PubKey]
-	if !ok || role == nip29.EmptyRole {
-		return true, "unknown admin"
-	}
-	if _, ok := role.Permissions[action.PermissionName()]; !ok {
-		return true, "insufficient permissions"
+		group := getGroupFromEvent(event)
+		role, ok := group.Members[event.PubKey]
+		if !ok || role == nip29.EmptyRole {
+			return true, "unknown admin"
+		}
+		if _, ok := role.Permissions[action.PermissionName()]; !ok {
+			return true, "insufficient permissions"
+		}
 	}
 	return false, ""
 }

@@ -36,6 +36,10 @@ func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (r
 }
 
 func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+	if !nip29.MetadataEventKinds.Includes(event.Kind) {
+		return false, ""
+	}
+
 	action, err := nip29_relay.GetModerationAction(event)
 	if err != nil {
 		return true, "invalid moderation action: " + err.Error()
@@ -112,6 +116,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 			CreatedAt: nostr.Now(),
 			Kind:      9000,
 			Tags: nostr.Tags{
+				nostr.Tag{"h", group.ID},
 				nostr.Tag{"p", event.PubKey},
 			},
 		}

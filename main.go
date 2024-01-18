@@ -87,6 +87,7 @@ func main() {
 		restrictWritesBasedOnGroupRules,
 		restrictInvalidModerationActions,
 		rateLimit,
+		preventWritingOfEventsJustDeleted,
 	)
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		applyModerationAction,

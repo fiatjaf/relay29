@@ -2,11 +2,19 @@ package main
 
 import (
 	"context"
+	"time"
 
+	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
 	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
 )
+
+const TOO_OLD = 60 // seconds
+
+// events that just got deleted will be cached here for TOO_OLD seconds such that someone doesn't rebroadcast
+// them -- after that time we won't accept them anymore, so we can remove their ids from this cache
+var deletedCache = set.NewSliceSet[string]()
 
 func requireHTagForExistingGroup(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	gtag := event.Tags.GetFirst([]string{"h", ""})
@@ -35,6 +43,13 @@ func restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (r
 	return false, ""
 }
 
+func preventWritingOfEventsJustDeleted(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+	if deletedCache.Has(event.ID) {
+		return true, "this was deleted"
+	}
+	return false, ""
+}
+
 func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	if !nip29.MetadataEventKinds.Includes(event.Kind) {
 		return false, ""
@@ -46,7 +61,7 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 	}
 
 	// moderation action events must be new and not reused
-	if event.CreatedAt < nostr.Now()-60 {
+	if event.CreatedAt < nostr.Now()-TOO_OLD {
 		return true, "moderation action is too old (older than 1 minute ago)"
 	}
 
@@ -83,6 +98,26 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	}
 	group := getGroupFromEvent(event)
 	action.Apply(&group.Group)
+
+	// if it's a delete event we have to actually delete stuff from the database here
+	if event.Kind == nostr.KindSimpleGroupDeleteEvent {
+		for _, tag := range event.Tags {
+			if tag.Key() == "e" {
+				res, _ := db.QueryEvents(ctx, nostr.Filter{IDs: []string{tag.Value()}})
+				for target := range res {
+					if err := db.DeleteEvent(ctx, target); err != nil {
+						log.Warn().Err(err).Stringer("event", target).Msg("failed to delete")
+					} else {
+						deletedCache.Add(target.ID)
+						go func(id string) {
+							time.Sleep(TOO_OLD * time.Second)
+							deletedCache.Remove(id)
+						}(target.ID)
+					}
+				}
+			}
+		}
+	}
 
 	// propagate new replaceable events to listeners
 	switch event.Kind {

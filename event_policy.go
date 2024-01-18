@@ -98,9 +98,6 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 		evt := group.ToMembersEvent()
 		evt.Sign(s.RelayPrivkey)
 		relay.BroadcastEvent(evt)
-	case nostr.KindSimpleGroupDeleteEvent:
-		// broadcast the actual event deletion so clients can handle it?
-		relay.BroadcastEvent(event)
 	}
 }
 
@@ -114,7 +111,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		// immediatelly add the requester
 		addUser := &nostr.Event{
 			CreatedAt: nostr.Now(),
-			Kind:      9000,
+			Kind:      nostr.KindSimpleGroupAddUser,
 			Tags: nostr.Tags{
 				nostr.Tag{"h", group.ID},
 				nostr.Tag{"p", event.PubKey},

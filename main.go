@@ -72,7 +72,7 @@ func main() {
 		blockDeletesOfOldMessages,
 	)
 	relay.OverwriteFilter = append(relay.OverwriteFilter,
-		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021, 39000, 39001),
+		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021, 39000, 39001, 39002),
 	)
 	relay.RejectFilter = append(relay.RejectFilter,
 		requireKindAndSingleGroupID,

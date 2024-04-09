@@ -22,7 +22,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	if pfx, value, err := nip19.Decode(pubkey); err == nil && pfx == "npub" {
 		pubkey = value.(string)
 	}
-	if !nostr.IsValidPublicKeyHex(pubkey) {
+	if !nostr.IsValidPublicKey(pubkey) {
 		http.Error(w, "pubkey is invalid", 400)
 		return
 	}

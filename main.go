@@ -98,7 +98,7 @@ func main() {
 	relay.Router().HandleFunc("/create", handleCreateGroup)
 	relay.Router().HandleFunc("/", handleHomepage)
 
-	log.Info().Msg("running on http://0.0.0.0:" + s.Port)
+	log.Info().Str("relay-pubkey", s.RelayPubkey).Msg("running on http://0.0.0.0:" + s.Port)
 	if err := http.ListenAndServe(":"+s.Port, relay); err != nil {
 		log.Fatal().Err(err).Msg("failed to serve")
 	}

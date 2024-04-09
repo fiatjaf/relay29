@@ -55,11 +55,6 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 		return false, ""
 	}
 
-	action, err := nip29_relay.GetModerationAction(event)
-	if err != nil {
-		return true, "invalid moderation action: " + err.Error()
-	}
-
 	// moderation action events must be new and not reused
 	if event.CreatedAt < nostr.Now()-TOO_OLD {
 		return true, "moderation action is too old (older than 1 minute ago)"
@@ -67,15 +62,22 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 
 	// will check if the moderation event author has sufficient permissions to perform this action
 	// except for the relay owner/pubkey, that has infinite permissions already
-	if event.PubKey != s.RelayPubkey {
-		group := getGroupFromEvent(event)
-		role, ok := group.Members[event.PubKey]
-		if !ok || role == nip29.EmptyRole {
-			return true, "unknown admin"
-		}
-		if _, ok := role.Permissions[action.PermissionName()]; !ok {
-			return true, "insufficient permissions"
-		}
+	if event.PubKey == s.RelayPubkey {
+		return false, ""
+	}
+
+	action, err := nip29_relay.GetModerationAction(event)
+	if err != nil {
+		return true, "invalid moderation action: " + err.Error()
+	}
+
+	group := getGroupFromEvent(event)
+	role, ok := group.Members[event.PubKey]
+	if !ok || role == nip29.EmptyRole {
+		return true, "unknown admin"
+	}
+	if _, ok := role.Permissions[action.PermissionName()]; !ok {
+		return true, "insufficient permissions"
 	}
 	return false, ""
 }
@@ -103,7 +105,16 @@ func applyModerationAction(ctx context.Context, event *nostr.Event) {
 	if event.Kind == nostr.KindSimpleGroupDeleteEvent {
 		for _, tag := range event.Tags {
 			if tag.Key() == "e" {
-				res, _ := db.QueryEvents(ctx, nostr.Filter{IDs: []string{tag.Value()}})
+				id := tag.Value()
+				if !nostr.IsValid32ByteHex(id) {
+					log.Warn().Stringer("event", event).Msg("delete request came with a broken \"e\" tag")
+					continue
+				}
+				res, err := db.QueryEvents(ctx, nostr.Filter{IDs: []string{id}})
+				if err != nil {
+					log.Warn().Err(err).Msg("failed to query event to be deleted")
+					continue
+				}
 				for target := range res {
 					if err := db.DeleteEvent(ctx, target); err != nil {
 						log.Warn().Err(err).Stringer("event", target).Msg("failed to delete")

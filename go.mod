@@ -3,7 +3,7 @@ module github.com/fiatjaf/relay29
 go 1.22.2
 
 require (
-	github.com/fiatjaf/eventstore v0.3.13
+	github.com/fiatjaf/eventstore v0.4.0
 	github.com/fiatjaf/khatru v0.4.0
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0

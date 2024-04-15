@@ -58,6 +58,7 @@ func main() {
 	relay.Info.Description = s.RelayDescription
 	relay.Info.Contact = s.RelayContact
 	relay.Info.Icon = s.RelayIcon
+	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents,

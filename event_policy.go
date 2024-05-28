@@ -159,7 +159,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 			CreatedAt: nostr.Now(),
 			Kind:      nostr.KindSimpleGroupAddUser,
 			Tags: nostr.Tags{
-				nostr.Tag{"h", group.ID},
+				nostr.Tag{"h", group.Address.ID},
 				nostr.Tag{"p", event.PubKey},
 			},
 		}
@@ -167,7 +167,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 			log.Error().Err(err).Msg("failed to sign add-user event")
 			return
 		}
-		if err := relay.AddEvent(ctx, addUser); err != nil {
+		if _, err := relay.AddEvent(ctx, addUser); err != nil {
 			log.Error().Err(err).Msg("failed to add user who requested to join")
 			return
 		}

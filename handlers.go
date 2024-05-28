@@ -80,7 +80,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "error signing group creation event: "+err.Error(), 500)
 			return
 		}
-		if err := relay.AddEvent(r.Context(), evt); err != nil {
+		if _, err := relay.AddEvent(r.Context(), evt); err != nil {
 			log.Error().Err(err).Stringer("event", evt).Msg("failed to save group creation event")
 			http.Error(w, "failed to save group creation event", 501)
 			return
@@ -88,5 +88,5 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})
-	fmt.Fprintf(w, "group created!\n\n%s\nid: %s", naddr, groupId)
+	fmt.Fprintf(w, "group created!\n\n%s\naddress: %s", naddr, group.Address)
 }

@@ -28,7 +28,10 @@ var (
 func newGroup(id string) *Group {
 	return &Group{
 		Group: nip29.Group{
-			ID:      id,
+			Address: nip29.GroupAddress{
+				ID:    id,
+				Relay: "wss://" + s.Domain,
+			},
 			Members: map[string]*nip29.Role{},
 		},
 
@@ -71,7 +74,7 @@ func loadGroups(ctx context.Context) {
 		groups = append(groups, group)
 	}
 
-	slices.SortFunc(groups, func(a, b *Group) int { return strings.Compare(a.ID, b.ID) })
+	slices.SortFunc(groups, func(a, b *Group) int { return strings.Compare(a.Address.ID, b.Address.ID) })
 }
 
 func getGroup(id string) *Group {
@@ -89,7 +92,7 @@ func addGroup(group *Group) error {
 	groupsLock.Lock()
 	defer groupsLock.Unlock()
 
-	idx, ok := slices.BinarySearchFunc(groups, group.ID, groupComparator)
+	idx, ok := slices.BinarySearchFunc(groups, group.Address.ID, groupComparator)
 	if ok {
 		return fmt.Errorf("a group with this id already exists")
 	}
@@ -97,6 +100,7 @@ func addGroup(group *Group) error {
 	groups = append(groups[0:idx], nil) // bogus
 	copy(groups[idx+1:], groups[idx:])
 	groups[idx] = group
+
 	return nil
 }
 
@@ -107,5 +111,5 @@ func getGroupFromEvent(event *nostr.Event) *Group {
 }
 
 func groupComparator(g *Group, id string) int {
-	return strings.Compare(g.ID, id)
+	return strings.Compare(g.Address.ID, id)
 }

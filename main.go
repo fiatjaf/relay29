@@ -81,7 +81,7 @@ func main() {
 	relay.RejectEvent = append(relay.RejectEvent,
 		requireHTagForExistingGroup,
 		policies.PreventLargeTags(64),
-		policies.PreventTooManyIndexableTags(6, nil, nil),
+		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
 		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021),
 		policies.PreventTimestampsInThePast(60),
 		policies.PreventTimestampsInTheFuture(30),

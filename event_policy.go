@@ -154,7 +154,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 
 	group := getGroupFromEvent(event)
 	if !group.Closed {
-		// immediatelly add the requester
+		// immediately add the requester
 		addUser := &nostr.Event{
 			CreatedAt: nostr.Now(),
 			Kind:      nostr.KindSimpleGroupAddUser,
@@ -171,6 +171,7 @@ func reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 			log.Error().Err(err).Msg("failed to add user who requested to join")
 			return
 		}
+		relay.BroadcastEvent(addUser)
 	}
 }
 

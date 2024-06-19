@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/fiatjaf/eventstore/lmdb"
+	"github.com/fiatjaf/eventstore/bolt"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/kelseyhightower/envconfig"
@@ -28,7 +28,7 @@ type Settings struct {
 
 var (
 	s     Settings
-	db    = &lmdb.LMDBBackend{}
+	db    = &bolt.BoltBackend{}
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay = khatru.NewRelay()
 )

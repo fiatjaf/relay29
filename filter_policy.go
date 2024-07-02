@@ -7,6 +7,10 @@ import (
 )
 
 func requireKindAndSingleGroupID(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+	if len(filter.IDs) > 0 {
+		return false, ""
+	}
+
 	if len(filter.Kinds) == 0 {
 		return true, "must specify kinds"
 	}

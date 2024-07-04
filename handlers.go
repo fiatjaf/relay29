@@ -39,7 +39,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("id", groupId).Str("owner", pubkey).Msg("making group")
 
-	group := getGroup(groupId)
+	group, _ := groups.Load(groupId)
 	if group != nil {
 		http.Error(w, "group already exists", 403)
 		return
@@ -47,9 +47,13 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	// create group right here
 	group = newGroup(groupId)
-	addGroup(group)
+	groups.Store(groupId, group)
 
 	foundingEvents := []*nostr.Event{
+		{
+			CreatedAt: nostr.Now(),
+			Kind:      nostr.KindSimpleGroupCreateGroup,
+		},
 		{
 			CreatedAt: nostr.Now(),
 			Kind:      nostr.KindSimpleGroupAddPermission,

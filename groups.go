@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -11,19 +10,17 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
 	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
-	"golang.org/x/exp/slices"
+	"github.com/puzpuzpuz/xsync/v3"
 	"golang.org/x/time/rate"
 )
 
 type Group struct {
 	nip29.Group
 	bucket *rate.Limiter
+	mu     sync.RWMutex
 }
 
-var (
-	groups     []*Group
-	groupsLock sync.Mutex
-)
+var groups = xsync.NewMapOf[string, *Group]()
 
 func newGroup(id string) *Group {
 	return &Group{
@@ -42,10 +39,7 @@ func newGroup(id string) *Group {
 
 // loadGroups loads all the group metadata from all the past action messages
 func loadGroups(ctx context.Context) {
-	groupsLock.Lock()
-	defer groupsLock.Unlock()
-
-	groupMetadataEvents, _ := db.QueryEvents(ctx, nostr.Filter{Limit: db.MaxLimit, Kinds: nip29.ModerationEventKinds})
+	groupMetadataEvents, _ := db.QueryEvents(ctx, nostr.Filter{Limit: db.MaxLimit, Kinds: []int{nostr.KindSimpleGroupCreateGroup}})
 	alreadySeen := set.NewSliceSet[string]()
 	for evt := range groupMetadataEvents {
 		gtag := evt.Tags.GetFirst([]string{"h", ""})
@@ -71,43 +65,15 @@ func loadGroups(ctx context.Context) {
 			act.Apply(&group.Group)
 		}
 
-		groups = append(groups, group)
+		groups.Store(group.Address.ID, group)
 	}
-
-	slices.SortFunc(groups, func(a, b *Group) int { return strings.Compare(a.Address.ID, b.Address.ID) })
-}
-
-func getGroup(id string) *Group {
-	groupsLock.Lock()
-	defer groupsLock.Unlock()
-
-	idx, ok := slices.BinarySearchFunc(groups, id, groupComparator)
-	if !ok {
-		return nil
-	}
-	return groups[idx]
-}
-
-func addGroup(group *Group) error {
-	groupsLock.Lock()
-	defer groupsLock.Unlock()
-
-	idx, ok := slices.BinarySearchFunc(groups, group.Address.ID, groupComparator)
-	if ok {
-		return fmt.Errorf("a group with this id already exists")
-	}
-
-	groups = append(groups[0:idx], nil) // bogus
-	copy(groups[idx+1:], groups[idx:])
-	groups[idx] = group
-
-	return nil
 }
 
 func getGroupFromEvent(event *nostr.Event) *Group {
 	gtag := event.Tags.GetFirst([]string{"h", ""})
 	groupId := (*gtag)[1]
-	return getGroup(groupId)
+	group, _ := groups.Load(groupId)
+	return group
 }
 
 func groupComparator(g *Group, id string) int {

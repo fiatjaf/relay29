@@ -60,6 +60,11 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 		return true, "moderation action is too old (older than 1 minute ago)"
 	}
 
+	group := getGroupFromEvent(event)
+	if event.Kind == nostr.KindSimpleGroupCreateGroup && group != nil {
+		return true, "group already exists"
+	}
+
 	// will check if the moderation event author has sufficient permissions to perform this action
 	// except for the relay owner/pubkey, that has infinite permissions already
 	if event.PubKey == s.RelayPubkey {
@@ -71,7 +76,6 @@ func restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (
 		return true, "invalid moderation action: " + err.Error()
 	}
 
-	group := getGroupFromEvent(event)
 	role, ok := group.Members[event.PubKey]
 	if !ok || role == nip29.EmptyRole {
 		return true, "unknown admin"

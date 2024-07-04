@@ -8,6 +8,7 @@ require (
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.32.0
+	github.com/puzpuzpuz/xsync/v3 v3.1.0
 	github.com/rs/zerolog v1.31.0
 	github.com/theplant/htmlgo v1.0.3
 	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
@@ -30,7 +31,6 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/puzpuzpuz/xsync/v3 v3.1.0 // indirect
 	github.com/rs/cors v1.11.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/tidwall/gjson v1.17.1 // indirect
@@ -42,3 +42,5 @@ require (
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 )
+
+replace github.com/nbd-wtf/go-nostr => ../go-nostr

@@ -62,7 +62,7 @@ func main() {
 
 	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
 	relay.QueryEvents = append(relay.QueryEvents,
-		db.QueryEvents,
+		normalEventQuery,
 		metadataQueryHandler,
 		adminsQueryHandler,
 		membersQueryHandler,
@@ -72,11 +72,8 @@ func main() {
 	relay.OverwriteDeletionOutcome = append(relay.OverwriteDeletionOutcome,
 		blockDeletesOfOldMessages,
 	)
-	relay.OverwriteFilter = append(relay.OverwriteFilter,
-		policies.RemoveAllButKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021, 39000, 39001, 39002),
-	)
 	relay.RejectFilter = append(relay.RejectFilter,
-		requireKindAndSingleGroupID,
+		requireKindAndSingleGroupIDOrSpecificEventReference,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
 		requireHTagForExistingGroup,
@@ -94,6 +91,7 @@ func main() {
 		applyModerationAction,
 		reactToJoinRequest,
 	)
+	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 
 	// http routes
 	relay.Router().HandleFunc("/create", handleCreateGroup)

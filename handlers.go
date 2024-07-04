@@ -58,7 +58,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		{
-			CreatedAt: nostr.Now(),
+			CreatedAt: nostr.Now() + 1,
 			Kind:      nostr.KindSimpleGroupAddPermission,
 			Tags: nostr.Tags{
 				nostr.Tag{"h", groupId},
@@ -73,7 +73,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 		{
-			CreatedAt: nostr.Now(),
+			CreatedAt: nostr.Now() + 2,
 			Kind:      nostr.KindSimpleGroupEditMetadata,
 			Tags: nostr.Tags{
 				nostr.Tag{"h", groupId},

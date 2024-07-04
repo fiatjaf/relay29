@@ -3,8 +3,8 @@ module github.com/fiatjaf/relay29
 go 1.22.2
 
 require (
-	github.com/fiatjaf/eventstore v0.4.5
-	github.com/fiatjaf/khatru v0.4.4
+	github.com/fiatjaf/eventstore v0.5.0
+	github.com/fiatjaf/khatru v0.5.0
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.34.0
@@ -42,7 +42,3 @@ require (
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 )
-
-replace github.com/nbd-wtf/go-nostr => ../go-nostr
-
-replace github.com/fiatjaf/khatru => ../khatru

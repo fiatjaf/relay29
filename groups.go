@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
 	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
@@ -40,20 +39,15 @@ func newGroup(id string) *Group {
 // loadGroups loads all the group metadata from all the past action messages
 func loadGroups(ctx context.Context) {
 	groupMetadataEvents, _ := db.QueryEvents(ctx, nostr.Filter{Limit: db.MaxLimit, Kinds: []int{nostr.KindSimpleGroupCreateGroup}})
-	alreadySeen := set.NewSliceSet[string]()
 	for evt := range groupMetadataEvents {
 		gtag := evt.Tags.GetFirst([]string{"h", ""})
 		id := (*gtag)[1]
 
-		if alreadySeen.Has(id) {
-			continue
-		}
-		alreadySeen.Add(id)
-
 		group := newGroup(id)
-		ch, _ := db.QueryEvents(ctx, nostr.Filter{
+		f := nostr.Filter{
 			Limit: 5000, Kinds: nip29.ModerationEventKinds, Tags: nostr.TagMap{"h": []string{id}},
-		})
+		}
+		ch, _ := db.QueryEvents(ctx, f)
 
 		events := make([]*nostr.Event, 0, 5000)
 		for event := range ch {

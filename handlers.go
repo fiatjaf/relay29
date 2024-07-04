@@ -53,6 +53,9 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		{
 			CreatedAt: nostr.Now(),
 			Kind:      nostr.KindSimpleGroupCreateGroup,
+			Tags: nostr.Tags{
+				nostr.Tag{"h", groupId},
+			},
 		},
 		{
 			CreatedAt: nostr.Now(),

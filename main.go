@@ -79,7 +79,12 @@ func main() {
 		requireHTagForExistingGroup,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
-		policies.RestrictToSpecifiedKinds(9, 11, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9021),
+		policies.RestrictToSpecifiedKinds(
+			9, 11, 12,
+			30023, 31922, 31923, 9802,
+			9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007,
+			9021,
+		),
 		policies.PreventTimestampsInThePast(60),
 		policies.PreventTimestampsInTheFuture(30),
 		restrictWritesBasedOnGroupRules,

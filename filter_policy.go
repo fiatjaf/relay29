@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"slices"
 
 	"github.com/fiatjaf/khatru"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
 func requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
@@ -12,15 +14,26 @@ func requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, fi
 	isNormal := false
 	isReference := false
 
-	// we assume the caller wants normal events if the 'h' tag is specified
-	// or metadata events if the 'd' tag is specified
-	if hTags, hasHTags := filter.Tags["h"]; hasHTags && len(hTags) > 0 {
-		isNormal = true
-	} else if dTags, hasDTags := filter.Tags["d"]; hasDTags && len(dTags) > 0 {
-		isMeta = true
-	} else {
-		// this may be a request for "#e", "#a" or just "ids"
-		isReference = true
+	for _, kind := range filter.Kinds {
+		if slices.Contains(nip29.MetadataEventKinds, kind) {
+			isMeta = true
+		} else if isMeta {
+			// once we have one meta we can't have other stuff
+			return true, "it's not allowed to mix metadata kinds with others"
+		}
+	}
+
+	if !isMeta {
+		// we assume the caller wants normal events if the 'h' tag is specified
+		// or metadata events if the 'd' tag is specified
+		if hTags, hasHTags := filter.Tags["h"]; hasHTags && len(hTags) > 0 {
+			isNormal = true
+		} else if dTags, hasDTags := filter.Tags["d"]; hasDTags && len(dTags) > 0 {
+			isMeta = true
+		} else {
+			// this may be a request for "#e", "#a" or just "ids"
+			isReference = true
+		}
 	}
 
 	authed := khatru.GetAuthed(ctx)

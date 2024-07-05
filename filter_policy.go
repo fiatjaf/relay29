@@ -1,4 +1,4 @@
-package main
+package relay29
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
-func requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+func (s *State) requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
 	isMeta := false
 	isNormal := false
 	isReference := false
@@ -44,7 +44,7 @@ func requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, fi
 		if tags, ok := filter.Tags["h"]; ok && len(tags) > 0 {
 			// "h" tags specified
 			for _, tag := range tags {
-				if group, _ := groups.Load(tag); group != nil {
+				if group, _ := s.Groups.Load(tag); group != nil {
 					if !group.Private {
 						continue // fine, this is public
 					}

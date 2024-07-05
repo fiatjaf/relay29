@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -39,15 +40,15 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("id", groupId).Str("owner", pubkey).Msg("making group")
 
-	group, _ := groups.Load(groupId)
+	group, _ := state.Groups.Load(groupId)
 	if group != nil {
 		http.Error(w, "group already exists", 403)
 		return
 	}
 
 	// create group right here
-	group = newGroup(groupId)
-	groups.Store(groupId, group)
+	group = state.NewGroup(groupId)
+	state.Groups.Store(groupId, group)
 
 	foundingEvents := []*nostr.Event{
 		{
@@ -81,13 +82,16 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
+
+	ourCtx := context.WithValue(r.Context(), internalCallContextKey, &struct{}{})
+
 	for _, evt := range foundingEvents {
 		if err := evt.Sign(s.RelayPrivkey); err != nil {
 			log.Error().Err(err).Msg("error signing group creation event")
 			http.Error(w, "error signing group creation event: "+err.Error(), 500)
 			return
 		}
-		if _, err := relay.AddEvent(r.Context(), evt); err != nil {
+		if _, err := state.Relay.AddEvent(ourCtx, evt); err != nil {
 			log.Error().Err(err).Stringer("event", evt).Msg("failed to save group creation event")
 			http.Error(w, "failed to save group creation event", 501)
 			return

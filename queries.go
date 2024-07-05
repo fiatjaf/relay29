@@ -1,4 +1,4 @@
-package main
+package relay29
 
 import (
 	"context"
@@ -9,14 +9,14 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
-				groups.Range(func(_ string, group *Group) bool {
+				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
 						// don't reveal metadata about private groups in lists
 						return true
@@ -25,15 +25,15 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 					}
 
 					evt := group.ToMetadataEvent()
-					evt.Sign(s.RelayPrivkey)
+					evt.Sign(s.privateKey)
 					ch <- evt
 					return true
 				})
 			} else {
 				for _, groupId := range filter.Tags["d"] {
-					if group, _ := groups.Load(groupId); group != nil {
+					if group, _ := s.Groups.Load(groupId); group != nil {
 						evt := group.ToMetadataEvent()
-						evt.Sign(s.RelayPrivkey)
+						evt.Sign(s.privateKey)
 						ch <- evt
 					}
 				}
@@ -46,33 +46,33 @@ func metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr
 	return ch, nil
 }
 
-func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
-				groups.Range(func(_ string, group *Group) bool {
+				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
 						// don't reveal lists of admins of private groups ever
 						return true
 					}
 
 					evt := group.ToAdminsEvent()
-					evt.Sign(s.RelayPrivkey)
+					evt.Sign(s.privateKey)
 					ch <- evt
 					return true
 				})
 			} else {
 				for _, groupId := range filter.Tags["d"] {
-					if group, _ := groups.Load(groupId); group != nil {
+					if group, _ := s.Groups.Load(groupId); group != nil {
 						if group.Private {
 							// don't reveal lists of admins of private groups ever
 							continue
 						}
 						evt := group.ToAdminsEvent()
-						evt.Sign(s.RelayPrivkey)
+						evt.Sign(s.privateKey)
 						ch <- evt
 					}
 				}
@@ -85,32 +85,32 @@ func adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.E
 	return ch, nil
 }
 
-func membersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMembers) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
-				groups.Range(func(_ string, group *Group) bool {
+				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
 						// don't reveal lists of members of private groups ever
 						return true
 					}
 					evt := group.ToMembersEvent()
-					evt.Sign(s.RelayPrivkey)
+					evt.Sign(s.privateKey)
 					ch <- evt
 					return true
 				})
 			} else {
 				for _, groupId := range filter.Tags["d"] {
-					if group, _ := groups.Load(groupId); group != nil {
+					if group, _ := s.Groups.Load(groupId); group != nil {
 						if group.Private {
 							// don't reveal lists of members of private groups ever
 							continue
 						}
 						evt := group.ToMembersEvent()
-						evt.Sign(s.RelayPrivkey)
+						evt.Sign(s.privateKey)
 						ch <- evt
 					}
 				}
@@ -123,10 +123,10 @@ func membersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.
 	return ch, nil
 }
 
-func normalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) normalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	if hTags, hasHTags := filter.Tags["h"]; hasHTags && len(hTags) > 0 {
 		// if these tags are present we already know access is safe because we've verified that in filter_policy.go
-		return db.QueryEvents(ctx, filter)
+		return s.DB.QueryEvents(ctx, filter)
 	}
 
 	ch := make(chan *nostr.Event)
@@ -136,11 +136,11 @@ func normalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Eve
 		var results chan *nostr.Event
 		var err error
 		if refE, ok := filter.Tags["e"]; ok && len(refE) > 0 {
-			results, err = db.QueryEvents(ctx, filter)
+			results, err = s.DB.QueryEvents(ctx, filter)
 		} else if refA, ok := filter.Tags["a"]; ok && len(refA) > 0 {
-			results, err = db.QueryEvents(ctx, filter)
+			results, err = s.DB.QueryEvents(ctx, filter)
 		} else if len(filter.IDs) > 0 {
-			results, err = db.QueryEvents(ctx, filter)
+			results, err = s.DB.QueryEvents(ctx, filter)
 		} else {
 			// we must end here for all the metadata queries and so on otherwise they will never close
 			close(ch)
@@ -152,7 +152,7 @@ func normalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Eve
 		allowed := set.NewSliceSet[string]()
 		disallowed := set.NewSliceSet[string]()
 		for evt := range results {
-			if group := getGroupFromEvent(evt); !group.Private || allowed.Has(group.Address.ID) {
+			if group := s.GetGroupFromEvent(evt); !group.Private || allowed.Has(group.Address.ID) {
 				ch <- evt
 			} else if authed != "" && !disallowed.Has(group.Address.ID) {
 				group.mu.RLock()

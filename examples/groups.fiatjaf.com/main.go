@@ -1,13 +1,13 @@
 package main
 
 import (
-	"context"
 	"net/http"
 	"os"
+	"slices"
 
 	"github.com/fiatjaf/eventstore/bolt"
-	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
+	"github.com/fiatjaf/relay29"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/rs/zerolog"
@@ -30,7 +30,7 @@ var (
 	s     Settings
 	db    = &bolt.BoltBackend{}
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
-	relay = khatru.NewRelay()
+	state *relay29.State
 )
 
 func main() {
@@ -49,61 +49,44 @@ func main() {
 	}
 	log.Debug().Str("path", db.Path).Msg("initialized database")
 
-	// load all groups
-	loadGroups(context.Background())
+	// init relay29 stuff
+	state = relay29.Init(relay29.Options{
+		Domain:    s.Domain,
+		DB:        db,
+		SecretKey: s.RelayPrivkey,
+	})
 
 	// init relay
-	relay.Info.Name = s.RelayName
-	relay.Info.PubKey = s.RelayPubkey
-	relay.Info.Description = s.RelayDescription
-	relay.Info.Contact = s.RelayContact
-	relay.Info.Icon = s.RelayIcon
-	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
+	state.Relay.Info.Name = s.RelayName
+	state.Relay.Info.PubKey = s.RelayPubkey
+	state.Relay.Info.Description = s.RelayDescription
+	state.Relay.Info.Contact = s.RelayContact
+	state.Relay.Info.Icon = s.RelayIcon
 
-	relay.StoreEvent = append(relay.StoreEvent, db.SaveEvent)
-	relay.QueryEvents = append(relay.QueryEvents,
-		normalEventQuery,
-		metadataQueryHandler,
-		adminsQueryHandler,
-		membersQueryHandler,
-	)
-	relay.CountEvents = append(relay.CountEvents, db.CountEvents)
-	relay.DeleteEvent = append(relay.DeleteEvent, db.DeleteEvent)
-	relay.OverwriteDeletionOutcome = append(relay.OverwriteDeletionOutcome,
+	state.Relay.OverwriteDeletionOutcome = append(state.Relay.OverwriteDeletionOutcome,
 		blockDeletesOfOldMessages,
 	)
-	relay.RejectFilter = append(relay.RejectFilter,
-		requireKindAndSingleGroupIDOrSpecificEventReference,
-	)
-	relay.RejectEvent = append(relay.RejectEvent,
-		requireHTagForExistingGroup,
+	state.Relay.RejectEvent = slices.Insert(state.Relay.RejectEvent, 0,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
 		policies.RestrictToSpecifiedKinds(
-			9, 11, 12,
+			9, 10, 11, 12,
 			30023, 31922, 31923, 9802,
 			9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007,
 			9021,
 		),
 		policies.PreventTimestampsInThePast(60),
 		policies.PreventTimestampsInTheFuture(30),
-		restrictWritesBasedOnGroupRules,
-		restrictInvalidModerationActions,
 		rateLimit,
-		preventWritingOfEventsJustDeleted,
+		preventGroupCreation,
 	)
-	relay.OnEventSaved = append(relay.OnEventSaved,
-		applyModerationAction,
-		reactToJoinRequest,
-	)
-	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 
 	// http routes
-	relay.Router().HandleFunc("/create", handleCreateGroup)
-	relay.Router().HandleFunc("/", handleHomepage)
+	state.Relay.Router().HandleFunc("/create", handleCreateGroup)
+	state.Relay.Router().HandleFunc("/", handleHomepage)
 
 	log.Info().Str("relay-pubkey", s.RelayPubkey).Msg("running on http://0.0.0.0:" + s.Port)
-	if err := http.ListenAndServe(":"+s.Port, relay); err != nil {
+	if err := http.ListenAndServe(":"+s.Port, state.Relay); err != nil {
 		log.Fatal().Err(err).Msg("failed to serve")
 	}
 }

@@ -5,7 +5,7 @@ a library for creating NIP-29 relays, based on https://github.com/fiatjaf/khatru
 CAUTION: This is probably broken so please don't trust it for anything serious and be prepared to delete your database.
 
 [source,go]
----
+----
 package main
 
 import (
@@ -57,7 +57,7 @@ func main() {
 		log.Fatal("failed to serve")
 	}
 }
----
+----
 
 == How to use
 

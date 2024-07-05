@@ -15,15 +15,17 @@ import (
 func main() {
 	relayPrivateKey := nostr.GeneratePrivateKey()
 
+	db := &slicestore.SliceStore{}
+	db.Init()
+
 	state := relay29.Init(relay29.Options{
 		Domain:    "localhost:2929",
-		DB:        &slicestore.SliceStore{},
+		DB:        db,
 		SecretKey: relayPrivateKey,
 	})
 
 	// init relay
 	state.Relay.Info.Name = "very ephemeral chat relay"
-	state.Relay.Info.PubKey, _ = nostr.GetPublicKey(relayPrivateKey)
 	state.Relay.Info.Description = "everything will be deleted as soon as I turn off my computer"
 
 	// extra policies

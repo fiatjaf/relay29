@@ -48,7 +48,12 @@ func (s *State) restrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 
 	if event.Kind == nostr.KindSimpleGroupCreateGroup {
 		// anyone can create new groups (if this is not desired a policy must be added to filter out this stuff)
-		return false, ""
+		if group == nil {
+			// well, as long as the group doesn't exist, of course
+			return false, ""
+		} else {
+			return true, "group already exists"
+		}
 	}
 
 	// only members can write
@@ -68,19 +73,23 @@ func (s *State) preventWritingOfEventsJustDeleted(ctx context.Context, event *no
 	return false, ""
 }
 
+func (s *State) requireModerationEventsToBeRecent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+	// moderation action events must be new and not reused
+	if nip29.ModerationEventKinds.Includes(event.Kind) && event.CreatedAt < nostr.Now()-tooOld {
+		return true, "moderation action is too old (older than 1 minute ago)"
+	}
+	return false, ""
+}
+
 func (s *State) restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	if !nip29.MetadataEventKinds.Includes(event.Kind) {
+	if !nip29.ModerationEventKinds.Includes(event.Kind) {
 		return false, ""
 	}
 
-	// moderation action events must be new and not reused
-	if event.CreatedAt < nostr.Now()-tooOld {
-		return true, "moderation action is too old (older than 1 minute ago)"
-	}
-
 	group := s.GetGroupFromEvent(event)
-	if event.Kind == nostr.KindSimpleGroupCreateGroup && group != nil {
-		return true, "group already exists"
+	if event.Kind == nostr.KindSimpleGroupCreateGroup {
+		// see restrictWritesBasedOnGroupRules for a check that a group cannot be created if it already exists
+		return false, ""
 	}
 
 	// will check if the moderation event author has sufficient permissions to perform this action
@@ -124,7 +133,9 @@ func (s *State) applyModerationAction(ctx context.Context, event *nostr.Event) {
 		group = s.GetGroupFromEvent(event)
 	}
 	// apply the moderation action
+	group.mu.Lock()
 	action.Apply(&group.Group)
+	group.mu.Unlock()
 
 	// if it's a delete event we have to actually delete stuff from the database here
 	if event.Kind == nostr.KindSimpleGroupDeleteEvent {
@@ -156,17 +167,33 @@ func (s *State) applyModerationAction(ctx context.Context, event *nostr.Event) {
 	}
 
 	// propagate new replaceable events to listeners depending on what changed happened
-	switch event.Kind {
-	case nostr.KindSimpleGroupCreateGroup, nostr.KindSimpleGroupEditMetadata, nostr.KindSimpleGroupEditGroupStatus:
-		evt := group.ToMetadataEvent()
-		evt.Sign(s.privateKey)
-		s.Relay.BroadcastEvent(evt)
-	case nostr.KindSimpleGroupAddPermission, nostr.KindSimpleGroupRemovePermission:
-		evt := group.ToMetadataEvent()
-		evt.Sign(s.privateKey)
-		s.Relay.BroadcastEvent(evt)
-	case nostr.KindSimpleGroupAddUser, nostr.KindSimpleGroupRemoveUser:
-		evt := group.ToMembersEvent()
+	for _, toBroadcast := range map[int][]func() *nostr.Event{
+		nostr.KindSimpleGroupCreateGroup: {
+			group.ToMetadataEvent,
+			group.ToAdminsEvent,
+			group.ToMembersEvent,
+		},
+		nostr.KindSimpleGroupEditMetadata: {
+			group.ToMetadataEvent,
+		},
+		nostr.KindSimpleGroupEditGroupStatus: {
+			group.ToMetadataEvent,
+		},
+		nostr.KindSimpleGroupAddPermission: {
+			group.ToMembersEvent,
+			group.ToAdminsEvent,
+		},
+		nostr.KindSimpleGroupRemovePermission: {
+			group.ToAdminsEvent,
+		},
+		nostr.KindSimpleGroupAddUser: {
+			group.ToMembersEvent,
+		},
+		nostr.KindSimpleGroupRemoveUser: {
+			group.ToMembersEvent,
+		},
+	}[event.Kind] {
+		evt := toBroadcast()
 		evt.Sign(s.privateKey)
 		s.Relay.BroadcastEvent(evt)
 	}

@@ -42,6 +42,7 @@ func Init(opts Options) *State {
 
 	// we create a new khatru relay
 	relay := khatru.NewRelay()
+	relay.Info.PubKey = pubkey
 	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
 
 	state := &State{
@@ -70,6 +71,7 @@ func Init(opts Options) *State {
 		state.requireKindAndSingleGroupIDOrSpecificEventReference,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
+		state.requireModerationEventsToBeRecent,
 		state.requireHTagForExistingGroup,
 		state.restrictWritesBasedOnGroupRules,
 		state.restrictInvalidModerationActions,

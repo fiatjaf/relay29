@@ -56,10 +56,10 @@ func (s *State) requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.
 					// check membership
 					group.mu.RLock()
 					if _, isMember := group.Members[authed]; isMember {
-						group.mu.Unlock()
+						group.mu.RUnlock()
 						continue // fine, this user is a member
 					}
-					group.mu.Unlock()
+					group.mu.RUnlock()
 					return true, "restricted: not a member"
 				}
 			}

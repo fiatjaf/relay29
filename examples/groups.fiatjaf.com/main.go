@@ -58,7 +58,6 @@ func main() {
 
 	// init relay
 	state.Relay.Info.Name = s.RelayName
-	state.Relay.Info.PubKey = s.RelayPubkey
 	state.Relay.Info.Description = s.RelayDescription
 	state.Relay.Info.Contact = s.RelayContact
 	state.Relay.Info.Icon = s.RelayIcon

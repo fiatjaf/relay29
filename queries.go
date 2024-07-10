@@ -6,20 +6,27 @@ import (
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"golang.org/x/exp/slices"
 )
 
 func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
+	authed := khatru.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
-						// don't reveal metadata about private groups in lists
-						return true
+						// don't reveal metadata about private groups in lists unless we're a member
+						if authed == "" {
+							return true
+						}
+						if _, isMember := group.Members[authed]; !isMember {
+							return true
+						}
 					} else if group.Closed {
 						// closed groups also shouldn't be listed since people can't freely join them
 					}
@@ -49,16 +56,25 @@ func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (
 func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
+	authed := khatru.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
-						// don't reveal lists of admins of private groups ever
+						// don't reveal lists of admins of private groups unless we're a member
+						if authed == "" {
+							return true
+						}
+						if _, isMember := group.Members[authed]; !isMember {
+							return true
+						}
+					}
+					if pks, hasPTags := filter.Tags["p"]; hasPTags && !hasOneOfTheseAdmins(group.Group, pks) {
+						// filter queried p tags
 						return true
 					}
-
 					evt := group.ToAdminsEvent()
 					evt.Sign(s.privateKey)
 					ch <- evt
@@ -68,7 +84,16 @@ func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (ch
 				for _, groupId := range filter.Tags["d"] {
 					if group, _ := s.Groups.Load(groupId); group != nil {
 						if group.Private {
-							// don't reveal lists of admins of private groups ever
+							// don't reveal lists of admins of private groups unless we're a member
+							if authed == "" {
+								continue
+							}
+							if _, isMember := group.Members[authed]; !isMember {
+								continue
+							}
+						}
+						if pks, hasPTags := filter.Tags["p"]; hasPTags && !hasOneOfTheseAdmins(group.Group, pks) {
+							// filter queried p tags
 							continue
 						}
 						evt := group.ToAdminsEvent()
@@ -88,13 +113,23 @@ func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (ch
 func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
+	authed := khatru.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMembers) {
 			if _, ok := filter.Tags["d"]; !ok {
 				// no "d" tag specified, return everything
 				s.Groups.Range(func(_ string, group *Group) bool {
 					if group.Private {
-						// don't reveal lists of members of private groups ever
+						// don't reveal lists of members of private groups unless we're a member
+						if authed == "" {
+							return true
+						}
+						if _, isMember := group.Members[authed]; !isMember {
+							return true
+						}
+					}
+					if pks, hasPTags := filter.Tags["p"]; hasPTags && !hasOneOfTheseMembers(group.Group, pks) {
+						// filter queried p tags
 						return true
 					}
 					evt := group.ToMembersEvent()
@@ -107,6 +142,15 @@ func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (c
 					if group, _ := s.Groups.Load(groupId); group != nil {
 						if group.Private {
 							// don't reveal lists of members of private groups ever
+							if authed == "" {
+								continue
+							}
+							if _, isMember := group.Members[authed]; !isMember {
+								continue
+							}
+						}
+						if pks, hasPTags := filter.Tags["p"]; hasPTags && !hasOneOfTheseMembers(group.Group, pks) {
+							// filter queried p tags
 							continue
 						}
 						evt := group.ToMembersEvent()
@@ -169,4 +213,22 @@ func (s *State) normalEventQuery(ctx context.Context, filter nostr.Filter) (chan
 	}()
 
 	return ch, nil
+}
+
+func hasOneOfTheseMembers(group nip29.Group, pubkeys []string) bool {
+	for _, pk := range pubkeys {
+		if _, ok := group.Members[pk]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func hasOneOfTheseAdmins(group nip29.Group, pubkeys []string) bool {
+	for _, pk := range pubkeys {
+		if role, ok := group.Members[pk]; ok && role != nil {
+			return true
+		}
+	}
+	return false
 }

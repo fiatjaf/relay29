@@ -68,6 +68,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		membersSub, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39002}, Tags: nostr.TagMap{"d": []string{"a"}}}})
 		require.NoError(t, err, "failed to subscribe to group members")
 
+		// create group
 		createGroup := nostr.Event{
 			CreatedAt: 1,
 			Kind:      9007,
@@ -76,6 +77,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		createGroup.Sign(user1)
 		require.NoError(t, r.Publish(ctx, createGroup), "failed to publish kind 9007")
 
+		// see if we get notified about that
 		select {
 		case evt := <-metaSub.Events:
 			require.Equal(t, "a", evt.Tags.GetD())
@@ -98,6 +100,7 @@ func TestGroupStuffABunch(t *testing.T) {
 			return
 		}
 
+		// invite another member
 		inviteMember := nostr.Event{
 			CreatedAt: 2,
 			Kind:      9000,
@@ -106,6 +109,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		inviteMember.Sign(user1)
 		require.NoError(t, r.Publish(ctx, inviteMember), "failed to publish kind 9000")
 
+		// see if we get notified about that
 		select {
 		case evt := <-membersSub.Events:
 			require.Equal(t, "a", evt.Tags.GetD())
@@ -119,6 +123,7 @@ func TestGroupStuffABunch(t *testing.T) {
 			return
 		}
 
+		// update metadata
 		updateMetadata := nostr.Event{
 			CreatedAt: 3,
 			Kind:      9002,
@@ -127,6 +132,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		updateMetadata.Sign(user1)
 		require.NoError(t, r.Publish(ctx, updateMetadata), "failed to publish kind 9002")
 
+		// see if we get notified about that
 		select {
 		case evt := <-metaSub.Events:
 			require.Equal(t, "a", evt.Tags.GetD())
@@ -139,6 +145,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		msgSub, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{9, 10}, Tags: nostr.TagMap{"h": []string{"a"}}}})
 		require.NoError(t, err, "failed to subscribe to group messages")
 
+		// publish some messages
 		for i := 4; i < 10; i++ {
 			message := nostr.Event{
 				CreatedAt: nostr.Timestamp(i),
@@ -154,6 +161,7 @@ func TestGroupStuffABunch(t *testing.T) {
 			require.NoError(t, r.Publish(ctx, message), "failed to publish kind 9")
 		}
 
+		// check if we have received messages correctly from the subscription
 		for i := 4; i < 10; i++ {
 			publisher := user1pk
 			if i%2 == 1 {
@@ -164,6 +172,7 @@ func TestGroupStuffABunch(t *testing.T) {
 			require.Equal(t, publisher, message.PubKey)
 		}
 
+		// events that should be rejected
 		failedNoHTag := nostr.Event{
 			CreatedAt: 11,
 			Content:   "failed",
@@ -190,6 +199,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		failedWrongHTag.Sign(user3)
 		require.Error(t, r.Publish(ctx, failedFromNonMember), "should fail to publish kind 9 from non-member")
 
+		// get stored messages
 		ext, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{9, 10, 11, 12}, Tags: nostr.TagMap{"h": []string{"a"}}}})
 		require.NoError(t, err, "failed to subscribe to messages again")
 		count := 0
@@ -201,13 +211,13 @@ func TestGroupStuffABunch(t *testing.T) {
 				count++
 			case <-ext.EndOfStoredEvents:
 				require.Equal(t, 6, count, "must have 6 messages")
-				goto end1
+				goto end1_1
 			case <-time.After(time.Second):
 				t.Fatal("select took too long")
 				return
 			}
 		}
-	end1:
+	end1_1:
 	}
 
 	// adding now a private group
@@ -330,13 +340,13 @@ func TestGroupStuffABunch(t *testing.T) {
 				return
 			case closed := <-failedSub.ClosedReason:
 				require.Contains(t, closed, "auth-required:")
-				goto end2
+				goto end2_1
 			case <-time.After(time.Second):
 				t.Fatal("select took too long")
 				return
 			}
 		}
-	end2:
+	end2_1:
 		r2, err := nostr.RelayConnect(ctx, "ws://localhost:29292")
 		require.NoError(t, err, "failed to connect to relay")
 
@@ -360,7 +370,7 @@ func TestGroupStuffABunch(t *testing.T) {
 				count++
 			case <-goodSub.EndOfStoredEvents:
 				require.Equal(t, 6, count, "must have 6 messages")
-				goto end3
+				goto end2_2
 			case <-failedSub.ClosedReason:
 				t.Fatal("should not have received CLOSED")
 			case <-time.After(time.Second):
@@ -368,7 +378,7 @@ func TestGroupStuffABunch(t *testing.T) {
 				return
 			}
 		}
-	end3:
+	end2_2:
 
 		anotherMessage := nostr.Event{
 			CreatedAt: 11,
@@ -392,6 +402,66 @@ func TestGroupStuffABunch(t *testing.T) {
 		case <-failedSub.Events:
 			t.Fatal("unauthed sub should not receive it")
 		case <-time.After(time.Millisecond * 200):
+		}
+	}
+
+	{
+		// query members list filtering by "#p"
+		for i, s := range []struct {
+			key                         string
+			groupcount                  int
+			groupcountwhenauthedasuser2 int
+		}{
+			{user1pk, 1, 1}, {user2pk, 1, 2}, {user3pk, 0, 1},
+		} {
+			r, err := nostr.RelayConnect(ctx, "ws://localhost:29292")
+			require.NoError(t, err, "failed to connect to relay")
+
+			ms, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39002}, Tags: nostr.TagMap{"p": []string{s.key}}}})
+			require.NoError(t, err, "failed to subscribe to group members")
+
+			count := 0
+			for {
+				select {
+				case message := <-ms.Events:
+					require.Equal(t, 39002, message.Kind)
+					count++
+				case <-ms.EndOfStoredEvents:
+					require.Equal(t, s.groupcount, count,
+						"when unauthed for key%d expected %d groups but got %d",
+						i+1, s.groupcount, count)
+					goto end3_1
+				case <-time.After(time.Second):
+					t.Fatalf("select took too long for key%d", i+1)
+					return
+				}
+			}
+		end3_1:
+
+			// perform auth and try again
+			err = r.Auth(ctx, func(authEvent *nostr.Event) error {
+				authEvent.Sign(user2)
+				return nil
+			})
+			ms, err = r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39002}, Tags: nostr.TagMap{"p": []string{s.key}}}})
+			require.NoError(t, err, "failed to subscribe to group members")
+
+			count = 0
+			for {
+				select {
+				case message := <-ms.Events:
+					require.Equal(t, 39002, message.Kind)
+					count++
+				case <-ms.EndOfStoredEvents:
+					require.Equal(t, s.groupcountwhenauthedasuser2, count,
+						"when authed for key%d expected %d groups but got %d",
+						i+1, s.groupcountwhenauthedasuser2, count)
+					goto end3_2
+				case <-time.After(time.Second):
+					return
+				}
+			}
+		end3_2:
 		}
 	}
 }

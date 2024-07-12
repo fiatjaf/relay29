@@ -185,11 +185,11 @@ func (s *State) normalEventQuery(ctx context.Context, filter nostr.Filter) (chan
 			results, err = s.DB.QueryEvents(ctx, filter)
 		} else if len(filter.IDs) > 0 {
 			results, err = s.DB.QueryEvents(ctx, filter)
-		} else {
-			// we must end here for all the metadata queries and so on otherwise they will never close
-			close(ch)
 		}
-		if err != nil {
+
+		if err != nil || results == nil {
+			// if the previous if didn't catch anything or if we got an error we must end here
+			close(ch)
 			return
 		}
 

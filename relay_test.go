@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/eventstore/slicestore"
+	"github.com/fiatjaf/khatru"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
@@ -19,21 +20,52 @@ func startTestRelay() func() {
 	db := &slicestore.SliceStore{}
 	db.Init()
 
+	pubkey, _ := nostr.GetPublicKey(relayPrivateKey)
+
+	relay := khatru.NewRelay()
+	relay.Info.PubKey = pubkey
+	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
+
 	state := Init(Options{
+		Relay:     relay,
 		Domain:    "localhost:29292",
 		DB:        db,
 		SecretKey: relayPrivateKey,
 	})
 
-	state.Relay.Info.Name = "very testy relay"
-	state.Relay.Info.Description = "this is just for testing"
+	// apply basic relay policies
+	relay.StoreEvent = append(relay.StoreEvent, state.DB.SaveEvent)
+	relay.QueryEvents = append(relay.QueryEvents,
+		state.NormalEventQuery,
+		state.MetadataQueryHandler,
+		state.AdminsQueryHandler,
+		state.MembersQueryHandler,
+	)
+	relay.DeleteEvent = append(relay.DeleteEvent, state.DB.DeleteEvent)
+	relay.RejectFilter = append(relay.RejectFilter,
+		state.RequireKindAndSingleGroupIDOrSpecificEventReference,
+	)
+	relay.RejectEvent = append(relay.RejectEvent,
+		state.RequireModerationEventsToBeRecent,
+		state.RequireHTagForExistingGroup,
+		state.RestrictWritesBasedOnGroupRules,
+		state.RestrictInvalidModerationActions,
+		state.PreventWritingOfEventsJustDeleted,
+	)
+	relay.OnEventSaved = append(relay.OnEventSaved,
+		state.ApplyModerationAction,
+		state.ReactToJoinRequest,
+	)
+	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
+	relay.Info.Name = "very testy relay"
+	relay.Info.Description = "this is just for testing"
 
 	// don't do this at home -- we're going to remove one requirement to make tests simpler
-	state.Relay.RejectEvent = slices.DeleteFunc(state.Relay.RejectEvent, func(f func(ctx context.Context, event *nostr.Event) (reject bool, msg string)) bool {
-		return fmt.Sprintf("%v", []any{f}) == fmt.Sprintf("%v", []any{state.requireModerationEventsToBeRecent})
+	relay.RejectEvent = slices.DeleteFunc(relay.RejectEvent, func(f func(ctx context.Context, event *nostr.Event) (reject bool, msg string)) bool {
+		return fmt.Sprintf("%v", []any{f}) == fmt.Sprintf("%v", []any{state.RequireModerationEventsToBeRecent})
 	})
 
-	server := &http.Server{Addr: ":29292", Handler: state.Relay}
+	server := &http.Server{Addr: ":29292", Handler: relay}
 
 	go func() {
 		server.ListenAndServe()

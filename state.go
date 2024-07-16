@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/fiatjaf/eventstore"
-	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
@@ -13,8 +12,13 @@ import (
 	"github.com/puzpuzpuz/xsync/v3"
 )
 
+type Relay interface {
+	BroadcastEvent(*nostr.Event)
+	AddEvent(context.Context, *nostr.Event) (bool, error)
+}
+
 type State struct {
-	Relay  *khatru.Relay
+	Relay  Relay
 	Domain string
 	Groups *xsync.MapOf[string, *Group]
 	DB     eventstore.Store
@@ -25,6 +29,7 @@ type State struct {
 }
 
 type Options struct {
+	Relay     Relay
 	Domain    string
 	DB        eventstore.Store
 	SecretKey string
@@ -40,13 +45,8 @@ func Init(opts Options) *State {
 	// we keep basic data about all groups in memory
 	groups := xsync.NewMapOf[string, *Group]()
 
-	// we create a new khatru relay
-	relay := khatru.NewRelay()
-	relay.Info.PubKey = pubkey
-	relay.Info.SupportedNIPs = append(relay.Info.SupportedNIPs, 29)
-
 	state := &State{
-		relay,
+		opts.Relay,
 		opts.Domain,
 		groups,
 		opts.DB,
@@ -57,31 +57,6 @@ func Init(opts Options) *State {
 
 	// load all groups
 	state.loadGroups(context.Background())
-
-	// apply basic relay policies
-	relay.StoreEvent = append(relay.StoreEvent, state.DB.SaveEvent)
-	relay.QueryEvents = append(relay.QueryEvents,
-		state.normalEventQuery,
-		state.metadataQueryHandler,
-		state.adminsQueryHandler,
-		state.membersQueryHandler,
-	)
-	relay.DeleteEvent = append(relay.DeleteEvent, state.DB.DeleteEvent)
-	relay.RejectFilter = append(relay.RejectFilter,
-		state.requireKindAndSingleGroupIDOrSpecificEventReference,
-	)
-	relay.RejectEvent = append(relay.RejectEvent,
-		state.requireModerationEventsToBeRecent,
-		state.requireHTagForExistingGroup,
-		state.restrictWritesBasedOnGroupRules,
-		state.restrictInvalidModerationActions,
-		state.preventWritingOfEventsJustDeleted,
-	)
-	relay.OnEventSaved = append(relay.OnEventSaved,
-		state.applyModerationAction,
-		state.reactToJoinRequest,
-	)
-	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 
 	return state
 }

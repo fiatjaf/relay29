@@ -46,10 +46,6 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// create group right here
-	group = state.NewGroup(groupId)
-	state.Groups.Store(groupId, group)
-
 	foundingEvents := []*nostr.Event{
 		{
 			CreatedAt: nostr.Now(),
@@ -98,6 +94,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	group, _ = state.Groups.Load(groupId)
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})
 	fmt.Fprintf(w, "group created!\n\n%s\naddress: %s", naddr, group.Address)
 }

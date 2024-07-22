@@ -71,8 +71,8 @@ func Init(opts Options) *State {
 		state.requireKindAndSingleGroupIDOrSpecificEventReference,
 	)
 	relay.RejectEvent = append(relay.RejectEvent,
-		state.requireModerationEventsToBeRecent,
 		state.requireHTagForExistingGroup,
+		state.requireModerationEventsToBeRecent,
 		state.restrictWritesBasedOnGroupRules,
 		state.restrictInvalidModerationActions,
 		state.preventWritingOfEventsJustDeleted,

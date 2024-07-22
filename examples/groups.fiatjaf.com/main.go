@@ -65,7 +65,7 @@ func main() {
 	state.Relay.OverwriteDeletionOutcome = append(state.Relay.OverwriteDeletionOutcome,
 		blockDeletesOfOldMessages,
 	)
-	state.Relay.RejectEvent = slices.Insert(state.Relay.RejectEvent, 0,
+	state.Relay.RejectEvent = slices.Insert(state.Relay.RejectEvent, 2,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
 		policies.RestrictToSpecifiedKinds(

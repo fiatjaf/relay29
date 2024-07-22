@@ -12,7 +12,7 @@ import (
 
 const tooOld = 60 // seconds
 
-func (s *State) requireHTagForExistingGroup(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func (s *State) RequireHTagForExistingGroup(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	// this allows us to never check again in any of the other rules if the tag exists and just assume it exists always
 	gtag := event.Tags.GetFirst([]string{"h", ""})
 	if gtag == nil {
@@ -32,7 +32,7 @@ func (s *State) requireHTagForExistingGroup(ctx context.Context, event *nostr.Ev
 	return false, ""
 }
 
-func (s *State) restrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	group := s.GetGroupFromEvent(event)
 
 	if event.Kind == nostr.KindSimpleGroupJoinRequest {
@@ -66,14 +66,14 @@ func (s *State) restrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 	return false, ""
 }
 
-func (s *State) preventWritingOfEventsJustDeleted(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func (s *State) PreventWritingOfEventsJustDeleted(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	if s.deletedCache.Has(event.ID) {
 		return true, "this was deleted"
 	}
 	return false, ""
 }
 
-func (s *State) requireModerationEventsToBeRecent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func (s *State) RequireModerationEventsToBeRecent(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	// moderation action events must be new and not reused
 	if nip29.ModerationEventKinds.Includes(event.Kind) && event.CreatedAt < nostr.Now()-tooOld {
 		return true, "moderation action is too old (older than 1 minute ago)"
@@ -81,7 +81,7 @@ func (s *State) requireModerationEventsToBeRecent(ctx context.Context, event *no
 	return false, ""
 }
 
-func (s *State) restrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
 	if !nip29.ModerationEventKinds.Includes(event.Kind) {
 		return false, ""
 	}
@@ -115,7 +115,7 @@ func (s *State) restrictInvalidModerationActions(ctx context.Context, event *nos
 	return false, ""
 }
 
-func (s *State) applyModerationAction(ctx context.Context, event *nostr.Event) {
+func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 	// turn event into a moderation action processor
 	action, err := nip29_relay.GetModerationAction(event)
 	if err != nil {
@@ -194,12 +194,12 @@ func (s *State) applyModerationAction(ctx context.Context, event *nostr.Event) {
 		},
 	}[event.Kind] {
 		evt := toBroadcast()
-		evt.Sign(s.privateKey)
+		evt.Sign(s.secretKey)
 		s.Relay.BroadcastEvent(evt)
 	}
 }
 
-func (s *State) reactToJoinRequest(ctx context.Context, event *nostr.Event) {
+func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 	if event.Kind != nostr.KindSimpleGroupJoinRequest {
 		return
 	}
@@ -215,7 +215,7 @@ func (s *State) reactToJoinRequest(ctx context.Context, event *nostr.Event) {
 				nostr.Tag{"p", event.PubKey},
 			},
 		}
-		if err := addUser.Sign(s.privateKey); err != nil {
+		if err := addUser.Sign(s.secretKey); err != nil {
 			log.Error().Err(err).Msg("failed to sign add-user event")
 			return
 		}

@@ -1,4 +1,4 @@
-package relay29
+package khatru29
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fiatjaf/eventstore/slicestore"
+	"github.com/fiatjaf/relay29"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
@@ -19,21 +20,21 @@ func startTestRelay() func() {
 	db := &slicestore.SliceStore{}
 	db.Init()
 
-	state := Init(Options{
+	relay, state := Init(relay29.Options{
 		Domain:    "localhost:29292",
 		DB:        db,
 		SecretKey: relayPrivateKey,
 	})
 
-	state.Relay.Info.Name = "very testy relay"
-	state.Relay.Info.Description = "this is just for testing"
+	relay.Info.Name = "very testy relay"
+	relay.Info.Description = "this is just for testing"
 
 	// don't do this at home -- we're going to remove one requirement to make tests simpler
-	state.Relay.RejectEvent = slices.DeleteFunc(state.Relay.RejectEvent, func(f func(ctx context.Context, event *nostr.Event) (reject bool, msg string)) bool {
-		return fmt.Sprintf("%v", []any{f}) == fmt.Sprintf("%v", []any{state.requireModerationEventsToBeRecent})
+	relay.RejectEvent = slices.DeleteFunc(relay.RejectEvent, func(f func(ctx context.Context, event *nostr.Event) (reject bool, msg string)) bool {
+		return fmt.Sprintf("%v", []any{f}) == fmt.Sprintf("%v", []any{state.RequireModerationEventsToBeRecent})
 	})
 
-	server := &http.Server{Addr: ":29292", Handler: state.Relay}
+	server := &http.Server{Addr: ":29292", Handler: relay}
 
 	go func() {
 		server.ListenAndServe()

@@ -4,12 +4,11 @@ import (
 	"context"
 	"slices"
 
-	"github.com/fiatjaf/khatru"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
-func (s *State) requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+func (s *State) RequireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
 	isMeta := false
 	isNormal := false
 	isReference := false
@@ -36,7 +35,7 @@ func (s *State) requireKindAndSingleGroupIDOrSpecificEventReference(ctx context.
 		}
 	}
 
-	authed := khatru.GetAuthed(ctx)
+	authed := s.GetAuthed(ctx)
 
 	switch {
 	case isNormal:

@@ -8,8 +8,8 @@ import (
 	"github.com/fiatjaf/eventstore/slicestore"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/fiatjaf/relay29"
+	"github.com/fiatjaf/relay29/khatru29"
 	"github.com/nbd-wtf/go-nostr"
-	"golang.org/x/exp/slices"
 )
 
 func main() {
@@ -18,18 +18,18 @@ func main() {
 	db := &slicestore.SliceStore{}
 	db.Init()
 
-	state := relay29.Init(relay29.Options{
+	relay, _ := khatru29.Init(relay29.Options{
 		Domain:    "localhost:2929",
 		DB:        db,
 		SecretKey: relayPrivateKey,
 	})
 
 	// init relay
-	state.Relay.Info.Name = "very ephemeral chat relay"
-	state.Relay.Info.Description = "everything will be deleted as soon as I turn off my computer"
+	relay.Info.Name = "very ephemeral chat relay"
+	relay.Info.Description = "everything will be deleted as soon as I turn off my computer"
 
 	// extra policies
-	state.Relay.RejectEvent = slices.Insert(state.Relay.RejectEvent, 0,
+	relay.RejectEvent = append(relay.RejectEvent,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
 		policies.RestrictToSpecifiedKinds(
@@ -43,12 +43,12 @@ func main() {
 	)
 
 	// http routes
-	state.Relay.Router().HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	relay.Router().HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "nothing to see here, you must use a nip-29 powered client")
 	})
 
 	fmt.Println("running on http://0.0.0.0:2929")
-	if err := http.ListenAndServe(":2929", state.Relay); err != nil {
+	if err := http.ListenAndServe(":2929", relay); err != nil {
 		log.Fatal("failed to serve")
 	}
 }

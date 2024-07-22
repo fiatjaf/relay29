@@ -3,17 +3,16 @@ package relay29
 import (
 	"context"
 
-	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
 	"golang.org/x/exp/slices"
 )
 
-func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) MetadataQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
-	authed := khatru.GetAuthed(ctx)
+	authed := s.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMetadata) {
 			if _, ok := filter.Tags["d"]; !ok {
@@ -32,7 +31,7 @@ func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (
 					}
 
 					evt := group.ToMetadataEvent()
-					evt.Sign(s.privateKey)
+					evt.Sign(s.secretKey)
 					ch <- evt
 					return true
 				})
@@ -40,7 +39,7 @@ func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (
 				for _, groupId := range filter.Tags["d"] {
 					if group, _ := s.Groups.Load(groupId); group != nil {
 						evt := group.ToMetadataEvent()
-						evt.Sign(s.privateKey)
+						evt.Sign(s.secretKey)
 						ch <- evt
 					}
 				}
@@ -53,10 +52,10 @@ func (s *State) metadataQueryHandler(ctx context.Context, filter nostr.Filter) (
 	return ch, nil
 }
 
-func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) AdminsQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
-	authed := khatru.GetAuthed(ctx)
+	authed := s.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupAdmins) {
 			if _, ok := filter.Tags["d"]; !ok {
@@ -76,7 +75,7 @@ func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (ch
 						return true
 					}
 					evt := group.ToAdminsEvent()
-					evt.Sign(s.privateKey)
+					evt.Sign(s.secretKey)
 					ch <- evt
 					return true
 				})
@@ -97,7 +96,7 @@ func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (ch
 							continue
 						}
 						evt := group.ToAdminsEvent()
-						evt.Sign(s.privateKey)
+						evt.Sign(s.secretKey)
 						ch <- evt
 					}
 				}
@@ -110,10 +109,10 @@ func (s *State) adminsQueryHandler(ctx context.Context, filter nostr.Filter) (ch
 	return ch, nil
 }
 
-func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) MembersQueryHandler(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	ch := make(chan *nostr.Event, 1)
 
-	authed := khatru.GetAuthed(ctx)
+	authed := s.GetAuthed(ctx)
 	go func() {
 		if slices.Contains(filter.Kinds, nostr.KindSimpleGroupMembers) {
 			if _, ok := filter.Tags["d"]; !ok {
@@ -133,7 +132,7 @@ func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (c
 						return true
 					}
 					evt := group.ToMembersEvent()
-					evt.Sign(s.privateKey)
+					evt.Sign(s.secretKey)
 					ch <- evt
 					return true
 				})
@@ -154,7 +153,7 @@ func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (c
 							continue
 						}
 						evt := group.ToMembersEvent()
-						evt.Sign(s.privateKey)
+						evt.Sign(s.secretKey)
 						ch <- evt
 					}
 				}
@@ -167,14 +166,14 @@ func (s *State) membersQueryHandler(ctx context.Context, filter nostr.Filter) (c
 	return ch, nil
 }
 
-func (s *State) normalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
+func (s *State) NormalEventQuery(ctx context.Context, filter nostr.Filter) (chan *nostr.Event, error) {
 	if hTags, hasHTags := filter.Tags["h"]; hasHTags && len(hTags) > 0 {
 		// if these tags are present we already know access is safe because we've verified that in filter_policy.go
 		return s.DB.QueryEvents(ctx, filter)
 	}
 
 	ch := make(chan *nostr.Event)
-	authed := khatru.GetAuthed(ctx)
+	authed := s.GetAuthed(ctx)
 	go func() {
 		// now here in refE/refA/ids we have to check for each result if it is allowed
 		var results chan *nostr.Event

@@ -1,6 +1,6 @@
 = relay29 image:https://pkg.go.dev/badge/github.com/fiatjaf/relay29.svg[link=https://pkg.go.dev/github.com/fiatjaf/relay29]
 
-a library for creating NIP-29 relays, based on https://github.com/fiatjaf/khatru[khatru].
+A library for creating NIP-29 relays, works with https://github.com/fiatjaf/khatru[khatru] using the https://pkg.go.dev/github.com/fiatjaf/relay29/khatru29[khatru29] wrapper.
 
 CAUTION: This is probably broken so please don't trust it for anything serious and be prepared to delete your database.
 
@@ -16,25 +16,28 @@ import (
 	"github.com/fiatjaf/eventstore/slicestore"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/fiatjaf/relay29"
+	"github.com/fiatjaf/relay29/khatru29"
 	"github.com/nbd-wtf/go-nostr"
-	"golang.org/x/exp/slices"
 )
 
 func main() {
 	relayPrivateKey := nostr.GeneratePrivateKey()
 
-	state := relay29.Init(relay29.Options{
+	db := &slicestore.SliceStore{} // this only keeps things in memory, use a different eventstore in production
+	db.Init()
+
+	relay, _ := khatru29.Init(relay29.Options{
 		Domain:    "localhost:2929",
-		DB:        &slicestore.SliceStore{},
+		DB:        db,
 		SecretKey: relayPrivateKey,
 	})
 
 	// init relay
-	state.Relay.Info.Name = "very ephemeral chat relay"
-	state.Relay.Info.Description = "everything will be deleted as soon as I turn off my computer"
+	relay.Info.Name = "very ephemeral chat relay"
+	relay.Info.Description = "everything will be deleted as soon as I turn off my computer"
 
 	// extra policies
-	state.Relay.RejectEvent = slices.Insert(state.Relay.RejectEvent, 0,
+	relay.RejectEvent = append(relay.RejectEvent,
 		policies.PreventLargeTags(64),
 		policies.PreventTooManyIndexableTags(6, []int{9005}, nil),
 		policies.RestrictToSpecifiedKinds(
@@ -48,12 +51,12 @@ func main() {
 	)
 
 	// http routes
-	state.Relay.Router().HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	relay.Router().HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "nothing to see here, you must use a nip-29 powered client")
 	})
 
 	fmt.Println("running on http://0.0.0.0:2929")
-	if err := http.ListenAndServe(":2929", state.Relay); err != nil {
+	if err := http.ListenAndServe(":2929", relay); err != nil {
 		log.Fatal("failed to serve")
 	}
 }
@@ -61,6 +64,15 @@ func main() {
 
 == How to use
 
-Basically you just call `relay29.Init()` and then you get back a `relay29.State` object that has a normal `khatru.Relay` inside and and also a map of `Group` objects that you can read but you should not modify manually. To modify these groups you must write moderation events with the `.AddEvent()` method of the `Relay`. This API may be improved later.
+Basically you just call `khatru29.Init()` and then you get back a `khatru.Relay` and a `relay29.State` instances. The state has inside it also a map of `Group` objects that you can read but you should not modify manually. To modify these groups you must write moderation events with the `.AddEvent()` method of the `Relay`. This API may be improved later.
 
 See link:examples/groups.fiatjaf.com/main.go[] for a (not very much) more complex example.
+
+== How it works
+
+What this library does is basically:
+- it keeps a list of of groups with metadata in memory (not the messages);
+- it checks a bunch of stuff for every event and filter received;
+- it acts on moderation events and on join-request events received and modify the group state;
+- it generates group metadata events (39000, 39001, 39002) events on the fly (these are not stored) and returns them to whoever queries them;
+- on startup it loads all the moderation events (9000, 9001, etc) from the database and rebuilds the group state from that (so if you want to modify the group state permanently you must publish one of these events to the relay — but of course you can also monkey-patch the map of groups in memory like an animal if you want);

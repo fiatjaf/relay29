@@ -1,0 +1,3 @@
+= strfry29
+
+==  a plugin for turning strfry into a NIP-29-powered relay

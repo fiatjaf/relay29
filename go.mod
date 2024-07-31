@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/fiatjaf/eventstore v0.7.0
 	github.com/fiatjaf/khatru v0.6.1
+	github.com/fiatjaf/relayer/v2 v2.2.1
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/nbd-wtf/go-nostr v0.34.3
@@ -13,7 +14,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/theplant/htmlgo v1.0.3
 	golang.org/x/exp v0.0.0-20240604190554-fc45aab8b7f8
-	golang.org/x/time v0.4.0
+	golang.org/x/time v0.5.0
 )
 
 require (
@@ -30,7 +31,6 @@ require (
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

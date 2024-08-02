@@ -4,10 +4,13 @@ import (
 	"context"
 
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
 func accept(event *nostr.Event) (reject bool, msg string) {
-	ctx := context.Background()
+	if nip29.MetadataEventKinds.Includes(event.Kind) {
+		return true, "can't write metadata event kinds directly"
+	}
 
 	for _, re := range []func(ctx context.Context, event *nostr.Event) (reject bool, msg string){
 		state.RequireHTagForExistingGroup,

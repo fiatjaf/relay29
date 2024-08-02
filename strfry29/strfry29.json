@@ -1,0 +1,6 @@
+{
+  "domain": "example.com",
+  "relay_secret_key": "9e36f2b5dcc299a01019471ec13bc911b614245f39464f2496d32bf639c12c3b",
+  "strfry_config_path": "strfry.conf",
+  "strfry_executable_path": "/usr/local/bin/strfry"
+}

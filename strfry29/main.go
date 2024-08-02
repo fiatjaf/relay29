@@ -1,18 +1,27 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/eventstore/strfry"
 	"github.com/fiatjaf/relay29"
 	"github.com/nbd-wtf/go-nostr"
 )
 
-var state *relay29.State
+var (
+	state *relay29.State
+	ctx   = context.Background()
+
+	strfrydb strfry.StrfryBackend
+	wdb      eventstore.RelayWrapper
+)
 
 func main() {
 	incoming := json.NewDecoder(os.Stdin)
@@ -37,18 +46,30 @@ func main() {
 		return
 	}
 
-	strfrydb := strfry.StrfryBackend{
+	strfrydb = strfry.StrfryBackend{
 		ConfigPath:     conf.StrfryConfig,
 		ExecutablePath: conf.StrfryExecutable,
 	}
 	strfrydb.Init()
 	defer strfrydb.Close()
 
+	wdb = eventstore.RelayWrapper{Store: &strfrydb}
+
 	state = relay29.New(relay29.Options{
 		Domain:    conf.Domain,
 		DB:        &strfrydb,
 		SecretKey: conf.RelaySecretKey,
 	})
+
+	state.GetAuthed = func(ctx context.Context) string { return "" }
+	state.Relay = protoRelay{}
+
+	// rebuild metadata events (replaceable) for all groups and make them available
+	filter := nostr.Filter{Kinds: []int{nostr.KindSimpleGroupMetadata, nostr.KindSimpleGroupAdmins, nostr.KindSimpleGroupMembers}}
+	if err := republishMetadataEvents(filter); err != nil {
+		log.Fatalf("failed to republish metadata events on startup: %s", err)
+		return
+	}
 
 	for {
 		var msg StrfryMessage
@@ -76,6 +97,13 @@ func main() {
 				ID:     msg.Event.ID,
 				Action: "accept",
 			})
+
+			go func() {
+				time.Sleep(time.Millisecond * 200)
+
+				state.ApplyModerationAction(ctx, msg.Event)
+				state.ReactToJoinRequest(ctx, msg.Event)
+			}()
 		}
 	}
 }
@@ -90,4 +118,15 @@ type StrfryResponse struct {
 	ID     string `json:"id"`
 	Action string `json:"action"`
 	Msg    string `json:"msg"`
+}
+
+type protoRelay struct{}
+
+func (p protoRelay) AddEvent(ctx context.Context, evt *nostr.Event) (skipBroadcast bool, writeError error) {
+	err := wdb.Publish(ctx, *evt)
+	return false, err
+}
+
+func (p protoRelay) BroadcastEvent(evt *nostr.Event) {
+	strfrydb.SaveEvent(ctx, evt)
 }

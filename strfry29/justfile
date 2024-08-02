@@ -1,0 +1,4 @@
+run:
+    go build .
+    mkdir -p strfry-db
+    strfry --config=./strfry.conf relay

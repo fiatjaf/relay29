@@ -207,6 +207,7 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		return
 	}
 
+	// if the group is open, anyone requesting to join will be allowed
 	group := s.GetGroupFromEvent(event)
 	if !group.Closed {
 		// immediately add the requester

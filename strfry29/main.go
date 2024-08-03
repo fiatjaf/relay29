@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/eventstore/strfry"
 	"github.com/fiatjaf/relay29"
 	"github.com/nbd-wtf/go-nostr"
@@ -20,7 +19,6 @@ var (
 	ctx   = context.Background()
 
 	strfrydb strfry.StrfryBackend
-	wdb      eventstore.RelayWrapper
 )
 
 func main() {
@@ -52,8 +50,6 @@ func main() {
 	}
 	strfrydb.Init()
 	defer strfrydb.Close()
-
-	wdb = eventstore.RelayWrapper{Store: &strfrydb}
 
 	state = relay29.New(relay29.Options{
 		Domain:    conf.Domain,
@@ -123,7 +119,7 @@ type StrfryResponse struct {
 type protoRelay struct{}
 
 func (p protoRelay) AddEvent(ctx context.Context, evt *nostr.Event) (skipBroadcast bool, writeError error) {
-	err := wdb.Publish(ctx, *evt)
+	err := strfrydb.SaveEvent(ctx, evt)
 	return false, err
 }
 

@@ -19,6 +19,8 @@ type State struct {
 	}
 	GetAuthed func(context.Context) string
 
+	AllowPrivateGroups bool
+
 	deletedCache set.Set[string]
 	publicKey    string
 	secretKey    string
@@ -44,6 +46,8 @@ func New(opts Options) *State {
 		Domain: opts.Domain,
 		Groups: groups,
 		DB:     opts.DB,
+
+		AllowPrivateGroups: true,
 
 		deletedCache: deletedCache,
 		publicKey:    pubkey,

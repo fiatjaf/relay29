@@ -102,6 +102,10 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 		return true, "invalid moderation action: " + err.Error()
 	}
 
+	if egs, ok := action.(EditGroupStatus); ok && egs.Private && !s.AllowPrivateGroups {
+		return true, "groups cannot be private"
+	}
+
 	group.mu.RLock()
 	defer group.mu.RUnlock()
 	role, ok := group.Members[event.PubKey]

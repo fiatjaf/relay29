@@ -57,6 +57,7 @@ func main() {
 		SecretKey: conf.RelaySecretKey,
 	})
 
+	state.AllowPrivateGroups = false
 	state.GetAuthed = func(ctx context.Context) string { return "" }
 	state.Relay = protoRelay{}
 

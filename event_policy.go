@@ -6,7 +6,6 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
-	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
 	"github.com/rs/zerolog/log"
 )
 
@@ -98,7 +97,7 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 		return false, ""
 	}
 
-	action, err := nip29_relay.GetModerationAction(event)
+	action, err := PrepareModerationAction(event)
 	if err != nil {
 		return true, "invalid moderation action: " + err.Error()
 	}
@@ -117,7 +116,7 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 
 func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 	// turn event into a moderation action processor
-	action, err := nip29_relay.GetModerationAction(event)
+	action, err := PrepareModerationAction(event)
 	if err != nil {
 		return
 	}

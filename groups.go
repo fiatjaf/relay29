@@ -6,7 +6,6 @@ import (
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
-	nip29_relay "github.com/nbd-wtf/go-nostr/nip29/relay"
 )
 
 type Group struct {
@@ -45,7 +44,7 @@ func (s *State) loadGroups(ctx context.Context) {
 		}
 		for i := len(events) - 1; i >= 0; i-- {
 			evt := events[i]
-			act, _ := nip29_relay.GetModerationAction(evt)
+			act, _ := PrepareModerationAction(evt)
 			act.Apply(&group.Group)
 		}
 

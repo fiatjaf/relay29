@@ -1,6 +1,6 @@
 = relay29 image:https://pkg.go.dev/badge/github.com/fiatjaf/relay29.svg[link=https://pkg.go.dev/github.com/fiatjaf/relay29]
 
-A library for creating NIP-29 relays, works with https://github.com/fiatjaf/khatru[khatru] using the https://pkg.go.dev/github.com/fiatjaf/relay29/khatru29[khatru29] wrapper.
+NIP-29 requires the relays to have more of an active role in making groups work with the rules, so this is a library for creating NIP-29 relays, works with https://github.com/fiatjaf/khatru[khatru] using the https://pkg.go.dev/github.com/fiatjaf/relay29/khatru29[khatru29] wrapper, https://github.com/hoytech/strfry[strfry] with link:strfry29[strfry29] and https://github.com/fiatjaf/relayer[relayer] with link:relayer29[relayer29].
 
 CAUTION: This is probably broken so please don't trust it for anything serious and be prepared to delete your database.
 

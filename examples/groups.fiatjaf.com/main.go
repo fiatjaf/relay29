@@ -4,8 +4,9 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"time"
 
-	"github.com/fiatjaf/eventstore/bolt"
+	"github.com/fiatjaf/eventstore/lmdb"
 	"github.com/fiatjaf/khatru"
 	"github.com/fiatjaf/khatru/policies"
 	"github.com/fiatjaf/relay29"
@@ -30,7 +31,7 @@ type Settings struct {
 
 var (
 	s     Settings
-	db    = &bolt.BoltBackend{}
+	db    = &lmdb.LMDBBackend{}
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay *khatru.Relay
 	state *relay29.State
@@ -77,8 +78,8 @@ func main() {
 			9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007,
 			9021,
 		),
-		policies.PreventTimestampsInThePast(60),
-		policies.PreventTimestampsInTheFuture(30),
+		policies.PreventTimestampsInThePast(60*time.Second),
+		policies.PreventTimestampsInTheFuture(30*time.Second),
 		rateLimit,
 		preventGroupCreation,
 	)

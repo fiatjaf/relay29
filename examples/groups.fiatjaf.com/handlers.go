@@ -36,7 +36,7 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	id := make([]byte, 8)
 	binary.LittleEndian.PutUint64(id, uint64(time.Now().Unix()))
-	groupId := hex.EncodeToString(id[0:4])
+	groupId := hex.EncodeToString(id[0:3])
 
 	log.Info().Str("id", groupId).Str("owner", pubkey).Msg("making group")
 

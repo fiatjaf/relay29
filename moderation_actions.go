@@ -7,6 +7,8 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
+var PTagNotValidPublicKey = fmt.Errorf("'p' tag value is not a valid public key")
+
 type Action interface {
 	Apply(group *nip29.Group)
 	PermissionName() nip29.Permission
@@ -24,8 +26,8 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 	nostr.KindSimpleGroupAddUser: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
-			if !nostr.IsValid32ByteHex(tag[1]) {
-				return nil, fmt.Errorf("")
+			if !nostr.IsValidPublicKey(tag[1]) {
+				return nil, PTagNotValidPublicKey
 			}
 			targets = append(targets, tag[1])
 		}
@@ -37,8 +39,8 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 	nostr.KindSimpleGroupRemoveUser: func(evt *nostr.Event) (Action, error) {
 		targets := make([]string, 0, len(evt.Tags))
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
-			if !nostr.IsValid32ByteHex(tag[1]) {
-				return nil, fmt.Errorf("invalid public key hex")
+			if !nostr.IsValidPublicKey(tag[1]) {
+				return nil, PTagNotValidPublicKey
 			}
 			targets = append(targets, tag[1])
 		}
@@ -81,8 +83,8 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 
 		targets := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
-			if !nostr.IsValid32ByteHex(tag[1]) {
-				return nil, fmt.Errorf("invalid public key hex")
+			if !nostr.IsValidPublicKey(tag[1]) {
+				return nil, PTagNotValidPublicKey
 			}
 			targets = append(targets, tag[1])
 		}
@@ -107,8 +109,8 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 
 		targets := make([]string, 0, nTags-1)
 		for _, tag := range evt.Tags.GetAll([]string{"p", ""}) {
-			if !nostr.IsValid32ByteHex(tag[1]) {
-				return nil, fmt.Errorf("invalid public key hex")
+			if !nostr.IsValidPublicKey(tag[1]) {
+				return nil, PTagNotValidPublicKey
 			}
 			targets = append(targets, tag[1])
 		}
@@ -223,24 +225,24 @@ type AddPermission struct {
 func (AddPermission) PermissionName() nip29.Permission { return nip29.PermAddPermission }
 func (a AddPermission) Apply(group *nip29.Group) {
 	for _, tpk := range a.Targets {
-		target, ok := group.Members[tpk]
+		role, ok := group.Members[tpk]
 
-		// if it's a normal user, create a new permissions object thing for this user
+		// if it's a normal user, create a new role object thing for this user
 		// instead of modifying the global EmptyRole
-		if !ok || target == nip29.EmptyRole {
-			target = &nip29.Role{Permissions: make(map[nip29.Permission]struct{})}
-			group.Members[tpk] = target
+		if !ok || role == nip29.EmptyRole {
+			role = &nip29.Role{Permissions: make(map[nip29.Permission]struct{})}
+			group.Members[tpk] = role
 
 			// when the user doesn't exit it will be added, so
 			group.LastMembersUpdate = a.When
 		}
 
-		// only add permissions that the user performing this already have
+		// only add role that the user performing this already have
 		initiator, ok := group.Members[a.Initiator]
 		if ok {
 			for _, perm := range a.Permissions {
 				if _, has := initiator.Permissions[perm]; has {
-					target.Permissions[perm] = struct{}{}
+					role.Permissions[perm] = struct{}{}
 				}
 			}
 		}

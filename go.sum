@@ -42,8 +42,8 @@ github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0/go.mod h1:v57UDF4pDQJcEfFUCRop3
 github.com/decred/dcrd/lru v1.0.0/go.mod h1:mxKOwFd7lFjN2GZYsiz/ecgqR6kkYAl+0pz0tEMk218=
 github.com/fasthttp/websocket v1.5.9 h1:9deGuzYcCRKjk940kNwSN6Hd14hk4zYwropm4UsUIUQ=
 github.com/fasthttp/websocket v1.5.9/go.mod h1:NLzHBFur260OMuZHohOfYQwMTpR7sfSpUnuqKxMpgKA=
-github.com/fiatjaf/eventstore v0.7.2 h1:d4HP83Vs2G+fmOkV67bR+puVe2Y1rTeXrzK0fX2IkCk=
-github.com/fiatjaf/eventstore v0.7.2/go.mod h1:KhZ1dT3uuczHczuSeCUzvj+1uBYapSHafPzPop4ZN/A=
+github.com/fiatjaf/eventstore v0.8.1 h1:51LchQNy0Hpb0YQHwqYR5pKBpfDs/KjySlWCbbz2pkc=
+github.com/fiatjaf/eventstore v0.8.1/go.mod h1:bsp0Ibv0CIcVuFcoM2AEerMWmXRhF8uWXMf+dClhuow=
 github.com/fiatjaf/khatru v0.7.6 h1:7dm+Rd24i6O6S08UCmEzi5izV1klU+4gQwzt7yi9s40=
 github.com/fiatjaf/khatru v0.7.6/go.mod h1:WVqij7X9Vr9UAMIwafQbKVFKxc42Np37vyficwUr/nQ=
 github.com/fiatjaf/relayer/v2 v2.2.1 h1:BO9Za6kFB2n0aCAv5BCWfIijrSF3dGLZDoCC/8zgb0Y=

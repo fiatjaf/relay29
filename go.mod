@@ -3,7 +3,7 @@ module github.com/fiatjaf/relay29
 go 1.23.0
 
 require (
-	github.com/fiatjaf/eventstore v0.7.2
+	github.com/fiatjaf/eventstore v0.8.1
 	github.com/fiatjaf/khatru v0.7.6
 	github.com/fiatjaf/relayer/v2 v2.2.1
 	github.com/fiatjaf/set v0.0.3

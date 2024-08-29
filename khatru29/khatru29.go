@@ -45,6 +45,7 @@ func Init(opts relay29.Options) (*khatru.Relay, *relay29.State) {
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		state.ApplyModerationAction,
 		state.ReactToJoinRequest,
+		state.ReactToLeaveRequest,
 	)
 	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 

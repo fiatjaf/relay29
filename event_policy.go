@@ -230,3 +230,32 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		s.Relay.BroadcastEvent(addUser)
 	}
 }
+
+func (s *State) ReactToLeaveRequest(ctx context.Context, event *nostr.Event) {
+	if event.Kind != nostr.KindSimpleGroupLeaveRequest {
+		return
+	}
+
+	group := s.GetGroupFromEvent(event)
+
+	if _, isMember := group.Members[event.PubKey]; isMember {
+		// immediately remove the requester
+		removeUser := &nostr.Event{
+			CreatedAt: nostr.Now(),
+			Kind:      nostr.KindSimpleGroupRemoveUser,
+			Tags: nostr.Tags{
+				nostr.Tag{"h", group.Address.ID},
+				nostr.Tag{"p", event.PubKey},
+			},
+		}
+		if err := removeUser.Sign(s.secretKey); err != nil {
+			log.Error().Err(err).Msg("failed to sign remove-user event")
+			return
+		}
+		if _, err := s.Relay.AddEvent(ctx, removeUser); err != nil {
+			log.Error().Err(err).Msg("failed to remove user who requested to leave")
+			return
+		}
+		s.Relay.BroadcastEvent(removeUser)
+	}
+}

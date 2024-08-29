@@ -3,6 +3,7 @@ package relayer29
 import (
 	"context"
 	"errors"
+
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/relay29"
 	"github.com/fiatjaf/relayer/v2"
@@ -149,6 +150,7 @@ func (s *Store) SaveEvent(ctx context.Context, ev *nostr.Event) error {
 	afs := []func(context.Context, *nostr.Event){
 		s.state.ApplyModerationAction,
 		s.state.ReactToJoinRequest,
+		s.state.ReactToLeaveRequest,
 	}
 	for _, rf := range afs {
 		rf(ctx, ev)

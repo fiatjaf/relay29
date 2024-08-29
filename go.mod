@@ -4,12 +4,11 @@ go 1.23.0
 
 require (
 	github.com/fiatjaf/eventstore v0.8.1
-	github.com/fiatjaf/khatru v0.7.6
+	github.com/fiatjaf/khatru v0.8.0
 	github.com/fiatjaf/relayer/v2 v2.2.1
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/kr/pretty v0.3.1
-	github.com/nbd-wtf/go-nostr v0.34.5
+	github.com/nbd-wtf/go-nostr v0.34.12
 	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/rs/zerolog v1.31.0
 	github.com/stretchr/testify v1.9.0
@@ -33,12 +32,10 @@ require (
 	github.com/gobwas/ws v1.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.8 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/cors v1.11.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/tidwall/gjson v1.17.1 // indirect

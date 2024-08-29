@@ -135,6 +135,7 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 	} else {
 		group = s.GetGroupFromEvent(event)
 	}
+
 	// apply the moderation action
 	group.mu.Lock()
 	action.Apply(&group.Group)
@@ -167,6 +168,9 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 				}
 			}
 		}
+	} else if event.Kind == nostr.KindSimpleGroupDeleteGroup {
+		// when the group was deleted we just remove it
+		s.Groups.Delete(group.Address.ID)
 	}
 
 	// propagate new replaceable events to listeners depending on what changed happened

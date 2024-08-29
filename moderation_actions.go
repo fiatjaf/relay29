@@ -159,6 +159,9 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 	nostr.KindSimpleGroupCreateGroup: func(evt *nostr.Event) (Action, error) {
 		return &CreateGroup{Creator: evt.PubKey, When: evt.CreatedAt}, nil
 	},
+	nostr.KindSimpleGroupDeleteGroup: func(evt *nostr.Event) (Action, error) {
+		return &CreateGroup{When: evt.CreatedAt}, nil
+	},
 }
 
 type DeleteEvent struct {
@@ -316,15 +319,33 @@ func (CreateGroup) PermissionName() nip29.Permission { return nip29.PermEditGrou
 func (a CreateGroup) Apply(group *nip29.Group) {
 	group.Members[a.Creator] = &nip29.Role{
 		Permissions: map[nip29.Permission]struct{}{
-			nip29.PermAddUser:          {},
-			nip29.PermRemoveUser:       {},
-			nip29.PermEditMetadata:     {},
-			nip29.PermAddPermission:    {},
-			nip29.PermRemovePermission: {},
-			nip29.PermDeleteEvent:      {},
-			nip29.PermEditGroupStatus:  {},
+			nip29.PermAddUser:           {},
+			nip29.PermRemoveUser:        {},
+			nip29.PermEditMetadata:      {},
+			nip29.PermAddPermission:     {},
+			nip29.PermRemovePermission:  {},
+			nip29.PermDeleteEvent:       {},
+			nip29.PermEditGroupStatus:   {},
+			nip29.PermDeleteGroupStatus: {},
 		},
 	}
+	group.LastMetadataUpdate = a.When
+	group.LastAdminsUpdate = a.When
+	group.LastMembersUpdate = a.When
+}
+
+type DeleteGroup struct {
+	When nostr.Timestamp
+}
+
+func (DeleteGroup) PermissionName() nip29.Permission { return nip29.PermDeleteGroupStatus }
+func (a DeleteGroup) Apply(group *nip29.Group) {
+	group.Members = make(map[string]*nip29.Role)
+	group.Closed = true
+	group.Private = true
+	group.Name = "[deleted]"
+	group.About = ""
+	group.Picture = ""
 	group.LastMetadataUpdate = a.When
 	group.LastAdminsUpdate = a.When
 	group.LastMembersUpdate = a.When

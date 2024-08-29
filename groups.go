@@ -48,6 +48,12 @@ func (s *State) loadGroups(ctx context.Context) {
 			act.Apply(&group.Group)
 		}
 
+		// if the group was deleted there will be no actions after the delete
+		if len(events) > 0 && events[0].Kind == nostr.KindSimpleGroupDeleteGroup {
+			// we don't keep track of this if it was deleted
+			continue
+		}
+
 		s.Groups.Store(group.Address.ID, group)
 	}
 }

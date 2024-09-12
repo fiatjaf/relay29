@@ -34,6 +34,14 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	question := r.PostFormValue("captcha-id")
+	solution := r.PostFormValue("captcha-solution")
+	if !captcha.Verify(question, solution, true) {
+		log.Info().Str("solution", solution).Msg("invalid captcha")
+		http.Error(w, "captcha solution is wrong", 400)
+		return
+	}
+
 	id := make([]byte, 8)
 	binary.LittleEndian.PutUint64(id, uint64(time.Now().Unix()))
 	groupId := hex.EncodeToString(id[0:3])

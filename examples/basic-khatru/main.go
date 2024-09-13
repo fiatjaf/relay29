@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/fiatjaf/eventstore/slicestore"
 	"github.com/fiatjaf/khatru/policies"
@@ -38,8 +39,8 @@ func main() {
 			9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007,
 			9021,
 		),
-		policies.PreventTimestampsInThePast(60),
-		policies.PreventTimestampsInTheFuture(30),
+		policies.PreventTimestampsInThePast(60*time.Second),
+		policies.PreventTimestampsInTheFuture(30*time.Second),
 	)
 
 	// http routes

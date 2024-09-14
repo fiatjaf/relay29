@@ -319,14 +319,14 @@ func (CreateGroup) PermissionName() nip29.Permission { return nip29.PermEditGrou
 func (a CreateGroup) Apply(group *nip29.Group) {
 	group.Members[a.Creator] = &nip29.Role{
 		Permissions: map[nip29.Permission]struct{}{
-			nip29.PermAddUser:           {},
-			nip29.PermRemoveUser:        {},
-			nip29.PermEditMetadata:      {},
-			nip29.PermAddPermission:     {},
-			nip29.PermRemovePermission:  {},
-			nip29.PermDeleteEvent:       {},
-			nip29.PermEditGroupStatus:   {},
-			nip29.PermDeleteGroupStatus: {},
+			nip29.PermAddUser:          {},
+			nip29.PermRemoveUser:       {},
+			nip29.PermEditMetadata:     {},
+			nip29.PermAddPermission:    {},
+			nip29.PermRemovePermission: {},
+			nip29.PermDeleteEvent:      {},
+			nip29.PermEditGroupStatus:  {},
+			nip29.PermDeleteGroup:      {},
 		},
 	}
 	group.LastMetadataUpdate = a.When
@@ -338,7 +338,7 @@ type DeleteGroup struct {
 	When nostr.Timestamp
 }
 
-func (DeleteGroup) PermissionName() nip29.Permission { return nip29.PermDeleteGroupStatus }
+func (DeleteGroup) PermissionName() nip29.Permission { return nip29.PermDeleteGroup }
 func (a DeleteGroup) Apply(group *nip29.Group) {
 	group.Members = make(map[string]*nip29.Role)
 	group.Closed = true

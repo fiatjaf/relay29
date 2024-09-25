@@ -34,7 +34,7 @@ func (s *State) loadGroups(ctx context.Context) {
 
 		group := s.NewGroup(id)
 		f := nostr.Filter{
-			Limit: 5000, Kinds: nip29.ModerationEventKinds, Tags: nostr.TagMap{"h": []string{id}},
+			Limit: 500, Kinds: nip29.ModerationEventKinds, Tags: nostr.TagMap{"h": []string{id}},
 		}
 		ch, _ := s.DB.QueryEvents(ctx, f)
 

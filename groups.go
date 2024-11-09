@@ -20,7 +20,7 @@ func (s *State) NewGroup(id string) *Group {
 				ID:    id,
 				Relay: "wss://" + s.Domain,
 			},
-			Members: map[string]*nip29.Role{},
+			Members: make(map[string][]*nip29.Role, 12),
 		},
 	}
 }

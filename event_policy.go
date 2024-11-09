@@ -102,20 +102,55 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 		return true, "invalid moderation action: " + err.Error()
 	}
 
-	if egs, ok := action.(EditGroupStatus); ok && egs.Private && !s.AllowPrivateGroups {
+	if egs, ok := action.(EditMetadata); ok && egs.PrivateValue != nil && *egs.PrivateValue && !s.AllowPrivateGroups {
 		return true, "groups cannot be private"
 	}
 
 	group.mu.RLock()
 	defer group.mu.RUnlock()
-	role, ok := group.Members[event.PubKey]
-	if !ok || role == nip29.EmptyRole {
-		return true, "unknown admin"
+	roles, _ := group.Members[event.PubKey]
+
+	// if only go had decent generics, macros or comptime we wouldn't have to repeat all this code
+	switch action := action.(type) {
+	case PutUser:
+		for _, role := range roles {
+			if s.AllowAction.PutUser(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
+	case RemoveUser:
+		for _, role := range roles {
+			if s.AllowAction.RemoveUser(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
+	case CreateGroup:
+		for _, role := range roles {
+			if s.AllowAction.CreateGroup(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
+	case EditMetadata:
+		for _, role := range roles {
+			if s.AllowAction.EditMetadata(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
+	case DeleteEvent:
+		for _, role := range roles {
+			if s.AllowAction.DeleteEvent(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
+	case DeleteGroup:
+		for _, role := range roles {
+			if s.AllowAction.DeleteGroup(ctx, group.Group, role, action) {
+				return false, ""
+			}
+		}
 	}
-	if _, ok := role.Permissions[action.PermissionName()]; !ok {
-		return true, "insufficient permissions"
-	}
-	return false, ""
+
+	return true, "insufficient permissions"
 }
 
 func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
@@ -179,21 +214,12 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 			group.ToMetadataEvent,
 			group.ToAdminsEvent,
 			group.ToMembersEvent,
+			group.ToRolesEvent,
 		},
 		nostr.KindSimpleGroupEditMetadata: {
 			group.ToMetadataEvent,
 		},
-		nostr.KindSimpleGroupEditGroupStatus: {
-			group.ToMetadataEvent,
-		},
-		nostr.KindSimpleGroupAddPermission: {
-			group.ToMembersEvent,
-			group.ToAdminsEvent,
-		},
-		nostr.KindSimpleGroupRemovePermission: {
-			group.ToAdminsEvent,
-		},
-		nostr.KindSimpleGroupAddUser: {
+		nostr.KindSimpleGroupPutUser: {
 			group.ToMembersEvent,
 		},
 		nostr.KindSimpleGroupRemoveUser: {
@@ -217,7 +243,7 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		// immediately add the requester
 		addUser := &nostr.Event{
 			CreatedAt: nostr.Now(),
-			Kind:      nostr.KindSimpleGroupAddUser,
+			Kind:      nostr.KindSimpleGroupPutUser,
 			Tags: nostr.Tags{
 				nostr.Tag{"h", group.Address.ID},
 				nostr.Tag{"p", event.PubKey},

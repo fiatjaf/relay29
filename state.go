@@ -6,6 +6,7 @@ import (
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/set"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"github.com/puzpuzpuz/xsync/v3"
 )
 
@@ -24,6 +25,15 @@ type State struct {
 	deletedCache set.Set[string]
 	publicKey    string
 	secretKey    string
+
+	AllowAction struct {
+		CreateGroup  func(context.Context, nip29.Group, *nip29.Role, CreateGroup) bool
+		PutUser      func(context.Context, nip29.Group, *nip29.Role, PutUser) bool
+		RemoveUser   func(context.Context, nip29.Group, *nip29.Role, RemoveUser) bool
+		EditMetadata func(context.Context, nip29.Group, *nip29.Role, EditMetadata) bool
+		DeleteEvent  func(context.Context, nip29.Group, *nip29.Role, DeleteEvent) bool
+		DeleteGroup  func(context.Context, nip29.Group, *nip29.Role, DeleteGroup) bool
+	}
 }
 
 type Options struct {

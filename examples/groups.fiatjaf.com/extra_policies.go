@@ -10,10 +10,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-var internalCallContextKey = struct{}{}
-
 func preventGroupCreation(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
-	if event.Kind == 9007 && ctx.Value(internalCallContextKey) == nil {
+	if event.Kind == 9007 && !relay29.IsInternalCall(ctx) {
 		return true, "to create groups open https://" + s.Domain + " in your web browser"
 	}
 	return false, ""

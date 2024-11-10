@@ -25,14 +25,16 @@ type State struct {
 	deletedCache set.Set[string]
 	publicKey    string
 	secretKey    string
+	defaultRoles []*nip29.Role
 
 	AllowAction func(context.Context, nip29.Group, *nip29.Role, Action) bool
 }
 
 type Options struct {
-	Domain    string
-	DB        eventstore.Store
-	SecretKey string
+	Domain       string
+	DB           eventstore.Store
+	SecretKey    string
+	DefaultRoles []*nip29.Role
 }
 
 func New(opts Options) *State {
@@ -55,10 +57,11 @@ func New(opts Options) *State {
 		deletedCache: deletedCache,
 		publicKey:    pubkey,
 		secretKey:    opts.SecretKey,
+		defaultRoles: opts.DefaultRoles,
 	}
 
 	// load all groups
-	state.loadGroups(context.Background())
+	state.loadGroupsFromDB(context.Background())
 
 	return state
 }

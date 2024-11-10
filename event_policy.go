@@ -139,6 +139,7 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 		// if it's a group creation event we create the group first
 		groupId := GetGroupIDFromEvent(event)
 		group = s.NewGroup(groupId)
+		group.Roles = s.defaultRoles
 		s.Groups.Store(groupId, group)
 	} else {
 		group = s.GetGroupFromEvent(event)

@@ -25,8 +25,8 @@ func (s *State) NewGroup(id string) *Group {
 	}
 }
 
-// loadGroups loads all the group metadata from all the past action messages.
-func (s *State) loadGroups(ctx context.Context) {
+// loadGroupsFromDB loads all the group metadata from all the past action messages.
+func (s *State) loadGroupsFromDB(ctx context.Context) {
 	groupMetadataEvents, _ := s.DB.QueryEvents(ctx, nostr.Filter{Kinds: []int{nostr.KindSimpleGroupCreateGroup}})
 	for evt := range groupMetadataEvents {
 		gtag := evt.Tags.GetFirst([]string{"h", ""})

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,12 @@ import (
 	"github.com/fiatjaf/relay29/relayer29"
 	"github.com/fiatjaf/relayer/v2"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
+)
+
+var (
+	adminRole     = &nip29.Role{Name: "admin", Description: "the group's max top admin"}
+	moderatorRole = &nip29.Role{Name: "moderator", Description: "the person who cleans up unwanted stuff"}
 )
 
 func main() {
@@ -23,11 +30,35 @@ func main() {
 	port := 2929
 
 	opts := relay29.Options{
-		Domain:    fmt.Sprintf("%s:%d", host, port),
-		DB:        db,
-		SecretKey: relayPrivateKey,
+		Domain:       fmt.Sprintf("%s:%d", host, port),
+		DB:           db,
+		SecretKey:    relayPrivateKey,
+		DefaultRoles: []*nip29.Role{adminRole, moderatorRole},
 	}
-	relay, _ := relayer29.Init(opts)
+	relay, state := relayer29.Init(opts)
+
+	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {
+		// this is simple:
+		if _, ok := action.(relay29.PutUser); ok {
+			// anyone can invite new users
+			return true
+		}
+		if role == adminRole {
+			// owners can do everything
+			return true
+		}
+		if role == moderatorRole {
+			// admins can delete people and messages
+			switch action.(type) {
+			case relay29.RemoveUser:
+				return true
+			case relay29.DeleteEvent:
+				return true
+			}
+		}
+		// no one else can do anything else
+		return false
+	}
 
 	relay.(*relayer29.Relay).RejectFunc = func(ev *nostr.Event) (bool, string) {
 		for _, tag := range ev.Tags {

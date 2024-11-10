@@ -57,8 +57,6 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	group, _ := state.Groups.Load(groupId)
-	group.Roles = append(group.Roles, ownerRole)
-
 	naddr, _ := nip19.EncodeEntity(s.RelayPubkey, 39000, groupId, []string{"wss://" + s.Domain})
 	fmt.Fprintf(w, "group created!\n\n%s\naddress: %s", naddr, group.Address)
 }

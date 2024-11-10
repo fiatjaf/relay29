@@ -40,8 +40,8 @@ var (
 )
 
 var (
-	ownerRole = &nip29.Role{Name: "owner", Description: "the group's max top admin"}
-	adminRole = &nip29.Role{Name: "admin", Description: "the group's noble servant"}
+	kingRole   = &nip29.Role{Name: "king", Description: "the group's max top admin"}
+	bishopRole = &nip29.Role{Name: "bishop", Description: "the group's noble servant"}
 )
 
 func main() {
@@ -62,9 +62,10 @@ func main() {
 
 	// init relay29 stuff
 	relay, state = khatru29.Init(relay29.Options{
-		Domain:    s.Domain,
-		DB:        db,
-		SecretKey: s.RelayPrivkey,
+		Domain:       s.Domain,
+		DB:           db,
+		SecretKey:    s.RelayPrivkey,
+		DefaultRoles: []*nip29.Role{kingRole, bishopRole},
 	})
 
 	// setup group-related restrictions
@@ -74,11 +75,11 @@ func main() {
 			// anyone can invite new users
 			return true
 		}
-		if role == ownerRole {
+		if role == kingRole {
 			// owners can do everything
 			return true
 		}
-		if role == adminRole {
+		if role == bishopRole {
 			// admins can delete people and messages
 			switch action.(type) {
 			case relay29.RemoveUser:

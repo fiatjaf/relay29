@@ -7,11 +7,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/fiatjaf/eventstore/strfry"
 	"github.com/fiatjaf/relay29"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
 var (
@@ -34,14 +36,23 @@ func main() {
 	}
 
 	var conf struct {
-		Domain           string `json:"domain"`
-		RelaySecretKey   string `json:"relay_secret_key"`
-		StrfryConfig     string `json:"strfry_config_path"`
-		StrfryExecutable string `json:"strfry_executable_path"`
+		Domain           string              `json:"domain"`
+		RelaySecretKey   string              `json:"relay_secret_key"`
+		StrfryConfig     string              `json:"strfry_config_path"`
+		StrfryExecutable string              `json:"strfry_executable_path"`
+		Permissions      map[string][]string `json:"permissions"`
 	}
 	if err := json.Unmarshal(confb, &conf); err != nil {
 		log.Fatalf("invalid json config at %s: %s", path, err)
 		return
+	}
+
+	defaultRoles := make([]*nip29.Role, 0, len(conf.Permissions))
+	for name := range conf.Permissions {
+		if name == "none" {
+			return
+		}
+		defaultRoles = append(defaultRoles, &nip29.Role{Name: name})
 	}
 
 	strfrydb = strfry.StrfryBackend{
@@ -52,10 +63,19 @@ func main() {
 	defer strfrydb.Close()
 
 	state = relay29.New(relay29.Options{
-		Domain:    conf.Domain,
-		DB:        &strfrydb,
-		SecretKey: conf.RelaySecretKey,
+		Domain:       conf.Domain,
+		DB:           &strfrydb,
+		SecretKey:    conf.RelaySecretKey,
+		DefaultRoles: defaultRoles,
 	})
+
+	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {
+		roleName := "none"
+		if role != nil {
+			roleName = role.Name
+		}
+		return slices.Contains(conf.Permissions[roleName], action.Name())
+	}
 
 	state.AllowPrivateGroups = false
 	state.GetAuthed = func(ctx context.Context) string { return "" }

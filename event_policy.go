@@ -110,46 +110,19 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 	defer group.mu.RUnlock()
 	roles, _ := group.Members[event.PubKey]
 
-	// if only go had decent generics, macros or comptime we wouldn't have to repeat all this code
-	switch action := action.(type) {
-	case PutUser:
-		for _, role := range roles {
-			if s.AllowAction.PutUser(ctx, group.Group, role, action) {
-				return false, ""
-			}
-		}
-	case RemoveUser:
-		for _, role := range roles {
-			if s.AllowAction.RemoveUser(ctx, group.Group, role, action) {
-				return false, ""
-			}
-		}
-	case CreateGroup:
-		for _, role := range roles {
-			if s.AllowAction.CreateGroup(ctx, group.Group, role, action) {
-				return false, ""
-			}
-		}
-	case EditMetadata:
-		for _, role := range roles {
-			if s.AllowAction.EditMetadata(ctx, group.Group, role, action) {
-				return false, ""
-			}
-		}
-	case DeleteEvent:
-		for _, role := range roles {
-			if s.AllowAction.DeleteEvent(ctx, group.Group, role, action) {
-				return false, ""
-			}
-		}
-	case DeleteGroup:
-		for _, role := range roles {
-			if s.AllowAction.DeleteGroup(ctx, group.Group, role, action) {
-				return false, ""
+	// create-group doesn't trigger an AllowAction call -- it must be prevented on khatru's RejectEvent hook
+	if _, ok := action.(CreateGroup); !ok {
+		if s.AllowAction != nil {
+			for _, role := range roles {
+				if s.AllowAction(ctx, group.Group, role, action) {
+					// if any roles allow it, we are good
+					return false, ""
+				}
 			}
 		}
 	}
 
+	// otherwise everything is forbidden (by default everything is forbidden)
 	return true, "insufficient permissions"
 }
 

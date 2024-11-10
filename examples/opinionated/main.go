@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/fiatjaf/relay29/khatru29"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"github.com/rs/zerolog"
 )
 
@@ -35,6 +37,11 @@ var (
 	log   = zerolog.New(os.Stderr).Output(zerolog.ConsoleWriter{Out: os.Stdout}).With().Timestamp().Logger()
 	relay *khatru.Relay
 	state *relay29.State
+)
+
+var (
+	ownerRole = &nip29.Role{Name: "owner", Description: "the group's max top admin"}
+	adminRole = &nip29.Role{Name: "admin", Description: "the group's noble servant"}
 )
 
 func main() {
@@ -61,6 +68,28 @@ func main() {
 	})
 
 	// setup group-related restrictions
+	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {
+		// this is simple:
+		if _, ok := action.(relay29.PutUser); ok {
+			// anyone can invite new users
+			return true
+		}
+		if role == ownerRole {
+			// owners can do everything
+			return true
+		}
+		if role == adminRole {
+			// admins can delete people and messages
+			switch action.(type) {
+			case relay29.RemoveUser:
+				return true
+			case relay29.DeleteEvent:
+				return true
+			}
+		}
+		// no one else can do anything else
+		return false
+	}
 
 	// init relay
 	relay.Info.Name = s.RelayName

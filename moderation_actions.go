@@ -11,6 +11,7 @@ var PTagNotValidPublicKey = fmt.Errorf("'p' tag value is not a valid public key"
 
 type Action interface {
 	Apply(group *nip29.Group)
+	Name() string
 }
 
 var (
@@ -120,7 +121,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		return &CreateGroup{Creator: evt.PubKey, When: evt.CreatedAt}, nil
 	},
 	nostr.KindSimpleGroupDeleteGroup: func(evt *nostr.Event) (Action, error) {
-		return &CreateGroup{When: evt.CreatedAt}, nil
+		return &DeleteGroup{When: evt.CreatedAt}, nil
 	},
 }
 
@@ -128,6 +129,7 @@ type DeleteEvent struct {
 	Targets []string
 }
 
+func (_ DeleteEvent) Name() string             { return "delete-event" }
 func (a DeleteEvent) Apply(group *nip29.Group) {}
 
 type PubKeyRoles struct {
@@ -140,6 +142,7 @@ type PutUser struct {
 	When    nostr.Timestamp
 }
 
+func (_ PutUser) Name() string { return "put-user" }
 func (a PutUser) Apply(group *nip29.Group) {
 	for _, target := range a.Targets {
 		for _, roleName := range target.RoleNames {
@@ -153,6 +156,7 @@ type RemoveUser struct {
 	When    nostr.Timestamp
 }
 
+func (_ RemoveUser) Name() string { return "remove-user" }
 func (a RemoveUser) Apply(group *nip29.Group) {
 	for _, tpk := range a.Targets {
 		delete(group.Members, tpk)
@@ -168,6 +172,7 @@ type EditMetadata struct {
 	When         nostr.Timestamp
 }
 
+func (_ EditMetadata) Name() string { return "edit-metadata" }
 func (a EditMetadata) Apply(group *nip29.Group) {
 	group.LastMetadataUpdate = a.When
 	if a.NameValue != nil {
@@ -192,6 +197,7 @@ type CreateGroup struct {
 	When    nostr.Timestamp
 }
 
+func (_ CreateGroup) Name() string { return "create-group" }
 func (a CreateGroup) Apply(group *nip29.Group) {
 	group.LastMetadataUpdate = a.When
 	group.LastAdminsUpdate = a.When
@@ -202,6 +208,7 @@ type DeleteGroup struct {
 	When nostr.Timestamp
 }
 
+func (_ DeleteGroup) Name() string { return "delete-group" }
 func (a DeleteGroup) Apply(group *nip29.Group) {
 	group.Members = make(map[string][]*nip29.Role)
 	group.Closed = true

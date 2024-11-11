@@ -10,21 +10,45 @@ import (
 	"github.com/fiatjaf/eventstore/slicestore"
 	"github.com/fiatjaf/relay29"
 	"github.com/nbd-wtf/go-nostr"
+	"github.com/nbd-wtf/go-nostr/nip29"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 )
 
 var relayPrivateKey = nostr.GeneratePrivateKey()
 
+var (
+	ceo       = &nip29.Role{Name: "ceo", Description: "the boss"}
+	secretary = &nip29.Role{Name: "secretary", Description: "the actual boss"}
+)
+
 func startTestRelay() func() {
 	db := &slicestore.SliceStore{}
 	db.Init()
 
 	relay, state := Init(relay29.Options{
-		Domain:    "localhost:29292",
-		DB:        db,
-		SecretKey: relayPrivateKey,
+		Domain:                  "localhost:29292",
+		DB:                      db,
+		SecretKey:               relayPrivateKey,
+		DefaultRoles:            []*nip29.Role{ceo, secretary},
+		GroupCreatorDefaultRole: ceo,
 	})
+
+	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {
+		if role == ceo {
+			if _, ok := action.(relay29.DeleteEvent); ok {
+				return false
+			}
+			return true
+		}
+		if role == secretary {
+			if _, ok := action.(relay29.EditMetadata); ok {
+				return false
+			}
+			return true
+		}
+		return false
+	}
 
 	relay.Info.Name = "very testy relay"
 	relay.Info.Description = "this is just for testing"
@@ -72,7 +96,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		// create group
 		createGroup := nostr.Event{
 			CreatedAt: 1,
-			Kind:      9007,
+			Kind:      nostr.KindSimpleGroupCreateGroup,
 			Tags:      nostr.Tags{{"h", "a"}},
 		}
 		createGroup.Sign(user1)
@@ -114,10 +138,8 @@ func TestGroupStuffABunch(t *testing.T) {
 		select {
 		case evt := <-membersSub.Events:
 			require.Equal(t, "a", evt.Tags.GetD())
-			require.NotNil(t,
-				evt.Tags.GetFirst([]string{"p", user1pk}),
-				evt.Tags.GetFirst([]string{"p", user2pk}),
-			)
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user1pk}))
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user2pk}))
 			require.Len(t, evt.Tags, 3)
 		case <-time.After(time.Second):
 			t.Fatal("select took too long")
@@ -240,6 +262,9 @@ func TestGroupStuffABunch(t *testing.T) {
 		membersSub, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39002}, Tags: nostr.TagMap{"d": []string{"b"}}}})
 		require.NoError(t, err, "failed to subscribe to group members")
 
+		adminsSub, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39001}, Tags: nostr.TagMap{"d": []string{"b"}}}})
+		require.NoError(t, err, "failed to subscribe to group members")
+
 		createGroup := nostr.Event{
 			CreatedAt: 1,
 			Kind:      9007,
@@ -259,9 +284,17 @@ func TestGroupStuffABunch(t *testing.T) {
 		select {
 		case evt := <-membersSub.Events:
 			require.Equal(t, "b", evt.Tags.GetD())
-			require.NotNil(t,
-				evt.Tags.GetFirst([]string{"p", user3pk}),
-			)
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user3pk}))
+			require.Len(t, evt.Tags, 2)
+		case <-time.After(time.Second):
+			t.Fatal("select took too long")
+			return
+		}
+
+		select {
+		case evt := <-adminsSub.Events:
+			require.Equal(t, "b", evt.Tags.GetD())
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user3pk, "ceo"}))
 			require.Len(t, evt.Tags, 2)
 		case <-time.After(time.Second):
 			t.Fatal("select took too long")
@@ -271,7 +304,7 @@ func TestGroupStuffABunch(t *testing.T) {
 		inviteMember := nostr.Event{
 			CreatedAt: 2,
 			Kind:      9000,
-			Tags:      nostr.Tags{{"h", "b"}, {"p", user2pk}},
+			Tags:      nostr.Tags{{"h", "b"}, {"p", user2pk, "secretary", "assistant"}},
 		}
 		inviteMember.Sign(user3)
 		require.NoError(t, r.Publish(ctx, inviteMember), "failed to publish kind 9000")
@@ -279,10 +312,19 @@ func TestGroupStuffABunch(t *testing.T) {
 		select {
 		case evt := <-membersSub.Events:
 			require.Equal(t, "b", evt.Tags.GetD())
-			require.NotNil(t,
-				evt.Tags.GetFirst([]string{"p", user3pk}),
-				evt.Tags.GetFirst([]string{"p", user2pk}),
-			)
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user3pk}))
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user2pk}))
+			require.Len(t, evt.Tags, 3)
+		case <-time.After(time.Second):
+			t.Fatal("select took too long")
+			return
+		}
+
+		select {
+		case evt := <-adminsSub.Events:
+			require.Equal(t, "b", evt.Tags.GetD())
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user3pk, "ceo"}))
+			require.NotNil(t, evt.Tags.GetFirst([]string{"p", user2pk, "secretary"}))
 			require.Len(t, evt.Tags, 3)
 		case <-time.After(time.Second):
 			t.Fatal("select took too long")
@@ -291,14 +333,14 @@ func TestGroupStuffABunch(t *testing.T) {
 
 		setGroupPrivate := nostr.Event{
 			CreatedAt: 3,
-			Kind:      9006,
+			Kind:      9002,
 			Tags: nostr.Tags{
 				{"h", "b"},
 				{"private"},
 			},
 		}
 		setGroupPrivate.Sign(user2)
-		require.Error(t, r.Publish(ctx, setGroupPrivate), "should fail to accept moderation from non-mod")
+		require.Error(t, r.Publish(ctx, setGroupPrivate), "should fail to accept moderation from secretary")
 
 		setGroupPrivate.Sign(user3)
 		require.NoError(t, r.Publish(ctx, setGroupPrivate), "failed to publish kind 9006")
@@ -400,9 +442,12 @@ func TestGroupStuffABunch(t *testing.T) {
 		}
 
 		select {
-		case <-failedSub.Events:
-			t.Fatal("unauthed sub should not receive it")
+		case evt := <-failedSub.Events:
+			if evt != nil {
+				t.Fatalf("unauthed sub should not receive %s", evt)
+			}
 		case <-time.After(time.Millisecond * 200):
+			t.Fatal("failedSub should have emitted a nil immediately")
 		}
 	}
 

@@ -30,6 +30,7 @@ func Init(opts relay29.Options) (*khatru.Relay, *relay29.State) {
 		state.MetadataQueryHandler,
 		state.AdminsQueryHandler,
 		state.MembersQueryHandler,
+		state.RolesQueryHandler,
 	)
 	relay.DeleteEvent = append(relay.DeleteEvent, state.DB.DeleteEvent)
 	relay.RejectFilter = append(relay.RejectFilter,

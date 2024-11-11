@@ -30,10 +30,11 @@ func main() {
 	port := 2929
 
 	opts := relay29.Options{
-		Domain:       fmt.Sprintf("%s:%d", host, port),
-		DB:           db,
-		SecretKey:    relayPrivateKey,
-		DefaultRoles: []*nip29.Role{adminRole, moderatorRole},
+		Domain:                  fmt.Sprintf("%s:%d", host, port),
+		DB:                      db,
+		SecretKey:               relayPrivateKey,
+		DefaultRoles:            []*nip29.Role{adminRole, moderatorRole},
+		GroupCreatorDefaultRole: adminRole,
 	}
 	relay, state := relayer29.Init(opts)
 

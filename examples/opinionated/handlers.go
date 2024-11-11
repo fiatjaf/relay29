@@ -47,12 +47,8 @@ func handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	log.Info().Str("id", groupId).Str("owner", pubkey).Msg("making group")
 
-	if err := state.CreateGroup(r.Context(), groupId, relay29.EditMetadata{NameValue: &name}); err != nil {
+	if err := state.CreateGroup(r.Context(), groupId, pubkey, relay29.EditMetadata{NameValue: &name}); err != nil {
 		http.Error(w, "failed to create group: "+err.Error(), 400)
-		return
-	}
-	if err := state.PutUser(r.Context(), groupId, pubkey, "owner"); err != nil {
-		http.Error(w, "failed to add group owner: "+err.Error(), 400)
 		return
 	}
 

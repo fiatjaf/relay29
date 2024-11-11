@@ -138,7 +138,7 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 	if event.Kind == nostr.KindSimpleGroupCreateGroup {
 		// if it's a group creation event we create the group first
 		groupId := GetGroupIDFromEvent(event)
-		group = s.NewGroup(groupId)
+		group = s.NewGroup(groupId, event.PubKey)
 		group.Roles = s.defaultRoles
 		s.Groups.Store(groupId, group)
 	} else {
@@ -195,6 +195,7 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 		},
 		nostr.KindSimpleGroupPutUser: {
 			group.ToMembersEvent,
+			group.ToAdminsEvent,
 		},
 		nostr.KindSimpleGroupRemoveUser: {
 			group.ToMembersEvent,

@@ -22,19 +22,21 @@ type State struct {
 
 	AllowPrivateGroups bool
 
-	deletedCache set.Set[string]
-	publicKey    string
-	secretKey    string
-	defaultRoles []*nip29.Role
+	deletedCache            set.Set[string]
+	publicKey               string
+	secretKey               string
+	defaultRoles            []*nip29.Role
+	groupCreatorDefaultRole *nip29.Role
 
-	AllowAction func(context.Context, nip29.Group, *nip29.Role, Action) bool
+	AllowAction func(ctx context.Context, group nip29.Group, role *nip29.Role, action Action) bool
 }
 
 type Options struct {
-	Domain       string
-	DB           eventstore.Store
-	SecretKey    string
-	DefaultRoles []*nip29.Role
+	Domain                  string
+	DB                      eventstore.Store
+	SecretKey               string
+	DefaultRoles            []*nip29.Role
+	GroupCreatorDefaultRole *nip29.Role
 }
 
 func New(opts Options) *State {
@@ -54,10 +56,11 @@ func New(opts Options) *State {
 
 		AllowPrivateGroups: true,
 
-		deletedCache: deletedCache,
-		publicKey:    pubkey,
-		secretKey:    opts.SecretKey,
-		defaultRoles: opts.DefaultRoles,
+		deletedCache:            deletedCache,
+		publicKey:               pubkey,
+		secretKey:               opts.SecretKey,
+		defaultRoles:            opts.DefaultRoles,
+		groupCreatorDefaultRole: opts.GroupCreatorDefaultRole,
 	}
 
 	// load all groups

@@ -2,6 +2,7 @@ package relay29
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
@@ -43,7 +44,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 			})
 		}
 		if len(targets) > 0 {
-			return &PutUser{Targets: targets, When: evt.CreatedAt}, nil
+			return PutUser{Targets: targets, When: evt.CreatedAt}, nil
 		}
 		return nil, fmt.Errorf("missing 'p' tags")
 	},
@@ -56,7 +57,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 			targets = append(targets, tag[1])
 		}
 		if len(targets) > 0 {
-			return &RemoveUser{Targets: targets, When: evt.CreatedAt}, nil
+			return RemoveUser{Targets: targets, When: evt.CreatedAt}, nil
 		}
 		return nil, fmt.Errorf("missing 'p' tags")
 	},
@@ -96,7 +97,7 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 		}
 
 		if ok {
-			return &edit, nil
+			return edit, nil
 		}
 		return nil, fmt.Errorf("missing metadata tags")
 	},
@@ -115,13 +116,13 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 			}
 		}
 
-		return &DeleteEvent{Targets: targets}, nil
+		return DeleteEvent{Targets: targets}, nil
 	},
 	nostr.KindSimpleGroupCreateGroup: func(evt *nostr.Event) (Action, error) {
-		return &CreateGroup{Creator: evt.PubKey, When: evt.CreatedAt}, nil
+		return CreateGroup{Creator: evt.PubKey, When: evt.CreatedAt}, nil
 	},
 	nostr.KindSimpleGroupDeleteGroup: func(evt *nostr.Event) (Action, error) {
-		return &DeleteGroup{When: evt.CreatedAt}, nil
+		return DeleteGroup{When: evt.CreatedAt}, nil
 	},
 }
 
@@ -145,9 +146,14 @@ type PutUser struct {
 func (_ PutUser) Name() string { return "put-user" }
 func (a PutUser) Apply(group *nip29.Group) {
 	for _, target := range a.Targets {
+		roles := make([]*nip29.Role, 0, len(target.RoleNames))
 		for _, roleName := range target.RoleNames {
-			group.Members[target.PubKey] = append(group.Members[target.PubKey], group.GetRoleByName(roleName))
+			if slices.IndexFunc(roles, func(r *nip29.Role) bool { return r.Name == roleName }) != -1 {
+				continue
+			}
+			roles = append(roles, group.GetRoleByName(roleName))
 		}
+		group.Members[target.PubKey] = roles
 	}
 }
 

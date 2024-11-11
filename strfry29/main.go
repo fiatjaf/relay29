@@ -36,11 +36,12 @@ func main() {
 	}
 
 	var conf struct {
-		Domain           string              `json:"domain"`
-		RelaySecretKey   string              `json:"relay_secret_key"`
-		StrfryConfig     string              `json:"strfry_config_path"`
-		StrfryExecutable string              `json:"strfry_executable_path"`
-		Permissions      map[string][]string `json:"permissions"`
+		Domain                  string              `json:"domain"`
+		RelaySecretKey          string              `json:"relay_secret_key"`
+		StrfryConfig            string              `json:"strfry_config_path"`
+		StrfryExecutable        string              `json:"strfry_executable_path"`
+		Permissions             map[string][]string `json:"permissions"`
+		GroupCreatorDefaultRole string              `json:"group_creator_default_role"`
 	}
 	if err := json.Unmarshal(confb, &conf); err != nil {
 		log.Fatalf("invalid json config at %s: %s", path, err)
@@ -63,10 +64,11 @@ func main() {
 	defer strfrydb.Close()
 
 	state = relay29.New(relay29.Options{
-		Domain:       conf.Domain,
-		DB:           &strfrydb,
-		SecretKey:    conf.RelaySecretKey,
-		DefaultRoles: defaultRoles,
+		Domain:                  conf.Domain,
+		DB:                      &strfrydb,
+		SecretKey:               conf.RelaySecretKey,
+		DefaultRoles:            defaultRoles,
+		GroupCreatorDefaultRole: defaultRoles[slices.IndexFunc(defaultRoles, func(role *nip29.Role) bool { return role.Name == conf.GroupCreatorDefaultRole })],
 	})
 
 	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {

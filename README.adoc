@@ -21,17 +21,48 @@ import (
 	"github.com/nbd-wtf/go-nostr"
 )
 
+var (
+	adminRole     = &nip29.Role{Name: "admin", Description: "the group's max top admin"}
+	moderatorRole = &nip29.Role{Name: "moderator", Description: "the person who cleans up unwanted stuff"}
+)
+
 func main() {
 	relayPrivateKey := nostr.GeneratePrivateKey()
 
 	db := &slicestore.SliceStore{} // this only keeps things in memory, use a different eventstore in production
 	db.Init()
 
-	relay, _ := khatru29.Init(relay29.Options{
+	relay, state := khatru29.Init(relay29.Options{
 		Domain:    "localhost:2929",
 		DB:        db,
 		SecretKey: relayPrivateKey,
+		DefaultRoles:            []*nip29.Role{adminRole, moderatorRole},
+		GroupCreatorDefaultRole: adminRole,
 	})
+
+	// setup group-related restrictions
+	state.AllowAction = func(ctx context.Context, group nip29.Group, role *nip29.Role, action relay29.Action) bool {
+		// this is simple:
+		if _, ok := action.(relay29.PutUser); ok {
+			// anyone can invite new users
+			return true
+		}
+		if role == adminRole {
+			// owners can do everything
+			return true
+		}
+		if role == moderatorRole {
+			// admins can delete people and messages
+			switch action.(type) {
+			case relay29.RemoveUser:
+				return true
+			case relay29.DeleteEvent:
+				return true
+			}
+		}
+		// no one else can do anything else
+		return false
+	}
 
 	// init relay
 	relay.Info.Name = "very ephemeral chat relay"
@@ -75,5 +106,5 @@ What this library does is basically:
 - it keeps a list of of groups with metadata in memory (not the messages);
 - it checks a bunch of stuff for every event and filter received;
 - it acts on moderation events and on join-request events received and modify the group state;
-- it generates group metadata events (39000, 39001, 39002) events on the fly (these are not stored) and returns them to whoever queries them;
+- it generates group metadata events (39000, 39001, 39002, 39003) events on the fly (these are not stored) and returns them to whoever queries them;
 - on startup it loads all the moderation events (9000, 9001, etc) from the database and rebuilds the group state from that (so if you want to modify the group state permanently you must publish one of these events to the relay — but of course you can also monkey-patch the map of groups in memory like an animal if you want);

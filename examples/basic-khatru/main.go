@@ -27,10 +27,11 @@ func main() {
 	db.Init()
 
 	relay, state := khatru29.Init(relay29.Options{
-		Domain:       "localhost:2929",
-		DB:           db,
-		SecretKey:    relayPrivateKey,
-		DefaultRoles: []*nip29.Role{adminRole, moderatorRole},
+		Domain:                  "localhost:2929",
+		DB:                      db,
+		SecretKey:               relayPrivateKey,
+		DefaultRoles:            []*nip29.Role{adminRole, moderatorRole},
+		GroupCreatorDefaultRole: adminRole,
 	})
 
 	// setup group-related restrictions

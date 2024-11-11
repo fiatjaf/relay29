@@ -25,6 +25,11 @@ func republishMetadataEvents(basefilter nostr.Filter) error {
 		return fmt.Errorf("with filter %s: %w", filter, err)
 	}
 
+	filter.Kinds = []int{nostr.KindSimpleGroupRoles}
+	if err := republishMetadataEvent(state.MembersQueryHandler, filter); err != nil {
+		return fmt.Errorf("with filter %s: %w", filter, err)
+	}
+
 	return nil
 }
 

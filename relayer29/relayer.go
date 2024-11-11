@@ -109,6 +109,7 @@ func (s *Store) QueryEvents(ctx context.Context, filter nostr.Filter) (chan *nos
 		s.state.MetadataQueryHandler,
 		s.state.AdminsQueryHandler,
 		s.state.MembersQueryHandler,
+		s.state.RolesQueryHandler,
 	}
 	for _, rf := range rfs {
 		if evc, err := rf(ctx, filter); err == nil {

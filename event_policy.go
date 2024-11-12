@@ -55,7 +55,12 @@ func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 		}
 	}
 
-	// only members can write
+	// the relay can write to any group
+	if event.PubKey == s.publicKey {
+		return false, ""
+	}
+
+	// aside from that only members can write
 	group.mu.RLock()
 	defer group.mu.RUnlock()
 	if _, isMember := group.Members[event.PubKey]; !isMember {

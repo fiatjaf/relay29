@@ -42,11 +42,13 @@ func Init(opts relay29.Options) (*khatru.Relay, *relay29.State) {
 		state.RestrictWritesBasedOnGroupRules,
 		state.RestrictInvalidModerationActions,
 		state.PreventWritingOfEventsJustDeleted,
+		state.CheckPreviousTag,
 	)
 	relay.OnEventSaved = append(relay.OnEventSaved,
 		state.ApplyModerationAction,
 		state.ReactToJoinRequest,
 		state.ReactToLeaveRequest,
+		state.AddToPreviousChecking,
 	)
 	relay.OnConnect = append(relay.OnConnect, khatru.RequestAuth)
 

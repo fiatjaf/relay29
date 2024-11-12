@@ -2,6 +2,7 @@ package relay29
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/nbd-wtf/go-nostr"
@@ -129,6 +130,38 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 
 	// otherwise everything is forbidden (by default everything is forbidden)
 	return true, "insufficient permissions"
+}
+
+func (s *State) CheckPreviousTag(ctx context.Context, event *nostr.Event) (reject bool, msg string) {
+	previous := event.Tags.GetFirst([]string{"previous"})
+	if previous == nil {
+		return false, ""
+	}
+
+	group := s.GetGroupFromEvent(event)
+	for _, idFirstChars := range (*previous)[1:] {
+		if len(idFirstChars) > 64 {
+			return true, fmt.Sprintf("invalid value '%s' in previous tag", idFirstChars)
+		}
+		found := false
+		for _, id := range group.last50 {
+			if id[0:len(idFirstChars)] == idFirstChars {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return true, fmt.Sprintf("previous id '%s' wasn't found in this relay", idFirstChars)
+		}
+	}
+
+	return false, ""
+}
+
+func (s *State) AddToPreviousChecking(ctx context.Context, event *nostr.Event) {
+	group := s.GetGroupFromEvent(event)
+	lastIndex := group.last50index.Add(1) - 1
+	group.last50[lastIndex%50] = event.ID
 }
 
 func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {

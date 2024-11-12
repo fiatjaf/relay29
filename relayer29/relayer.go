@@ -136,6 +136,7 @@ func (s *Store) SaveEvent(ctx context.Context, ev *nostr.Event) error {
 		s.state.RestrictWritesBasedOnGroupRules,
 		s.state.RestrictInvalidModerationActions,
 		s.state.PreventWritingOfEventsJustDeleted,
+		s.state.CheckPreviousTag,
 	}
 	for _, rf := range bfs {
 		if rejected, msg := rf(ctx, ev); rejected {
@@ -152,6 +153,7 @@ func (s *Store) SaveEvent(ctx context.Context, ev *nostr.Event) error {
 		s.state.ApplyModerationAction,
 		s.state.ReactToJoinRequest,
 		s.state.ReactToLeaveRequest,
+		s.state.AddToPreviousChecking,
 	}
 	for _, rf := range afs {
 		rf(ctx, ev)

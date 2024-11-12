@@ -18,6 +18,7 @@ func accept(event *nostr.Event) (reject bool, msg string) {
 		state.RestrictWritesBasedOnGroupRules,
 		state.RestrictInvalidModerationActions,
 		state.PreventWritingOfEventsJustDeleted,
+		state.CheckPreviousTag,
 	} {
 		if reject, msg := re(ctx, event); reject {
 			return reject, msg

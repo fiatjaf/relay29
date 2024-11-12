@@ -123,6 +123,7 @@ func main() {
 				state.ApplyModerationAction(ctx, msg.Event)
 				state.ReactToJoinRequest(ctx, msg.Event)
 				state.ReactToLeaveRequest(ctx, msg.Event)
+				state.AddToPreviousChecking(ctx, msg.Event)
 			}()
 		}
 	}

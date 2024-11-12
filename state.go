@@ -2,6 +2,7 @@ package relay29
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/set"
@@ -64,7 +65,10 @@ func New(opts Options) *State {
 	}
 
 	// load all groups
-	state.loadGroupsFromDB(context.Background())
+	err := state.loadGroupsFromDB(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("failed to load groups from db: %w", err))
+	}
 
 	return state
 }

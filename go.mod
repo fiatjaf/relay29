@@ -12,7 +12,7 @@ require (
 	github.com/fiatjaf/set v0.0.3
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/mojocn/base64Captcha v1.3.6
-	github.com/nbd-wtf/go-nostr v0.36.0
+	github.com/nbd-wtf/go-nostr v0.42.1
 	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/rs/zerolog v1.31.0
 	github.com/stretchr/testify v1.9.0
@@ -53,5 +53,3 @@ require (
 	golang.org/x/sys v0.26.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/nbd-wtf/go-nostr => ../go-nostr

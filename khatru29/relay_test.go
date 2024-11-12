@@ -169,12 +169,14 @@ func TestGroupStuffABunch(t *testing.T) {
 		require.NoError(t, err, "failed to subscribe to group messages")
 
 		// publish some messages
+		previous := make([]string, 1, 6)
+		previous[0] = "previous"
 		for i := 4; i < 10; i++ {
 			message := nostr.Event{
 				CreatedAt: nostr.Timestamp(i),
 				Content:   fmt.Sprintf("hello %d", i),
 				Kind:      9,
-				Tags:      nostr.Tags{{"h", "a"}},
+				Tags:      nostr.Tags{{"h", "a"}, previous},
 			}
 			signer := user1
 			if i%2 == 1 {
@@ -182,6 +184,10 @@ func TestGroupStuffABunch(t *testing.T) {
 			}
 			message.Sign(signer)
 			require.NoError(t, r.Publish(ctx, message), "failed to publish kind 9")
+
+			if i%3 == 0 {
+				previous = append(previous, message.ID[0:i*2])
+			}
 		}
 
 		// check if we have received messages correctly from the subscription
@@ -221,6 +227,25 @@ func TestGroupStuffABunch(t *testing.T) {
 		}
 		failedWrongHTag.Sign(user3)
 		require.Error(t, r.Publish(ctx, failedFromNonMember), "should fail to publish kind 9 from non-member")
+
+		failedWrongPreviousTag := nostr.Event{
+			CreatedAt: 9,
+			Content:   "failed",
+			Kind:      9,
+			Tags:      nostr.Tags{{"h", "a"}, {"previous", "aaaaa"}},
+		}
+		failedWrongPreviousTag.Sign(user1)
+		require.Error(t, r.Publish(ctx, failedWrongPreviousTag), "should fail to publish kind 9 with wrong previous tag")
+
+		previous = append(previous, "zzzzz")
+		failedSomeCorrectSomeWrongPreviousTag := nostr.Event{
+			CreatedAt: 9,
+			Content:   "failed",
+			Kind:      9,
+			Tags:      nostr.Tags{{"h", "a"}, previous},
+		}
+		failedSomeCorrectSomeWrongPreviousTag.Sign(user1)
+		require.Error(t, r.Publish(ctx, failedSomeCorrectSomeWrongPreviousTag), "should fail to publish kind 9 with some correct some wrong previous tag")
 
 		// get stored messages
 		ext, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{9, 10, 11, 12}, Tags: nostr.TagMap{"h": []string{"a"}}}})

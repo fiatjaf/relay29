@@ -145,6 +145,9 @@ func (s *State) CheckPreviousTag(ctx context.Context, event *nostr.Event) (rejec
 		}
 		found := false
 		for _, id := range group.last50 {
+			if id == "" {
+				continue
+			}
 			if id[0:len(idFirstChars)] == idFirstChars {
 				found = true
 				break

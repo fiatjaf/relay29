@@ -8,7 +8,10 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 )
 
-func (s *State) RequireKindAndSingleGroupIDOrSpecificEventReference(ctx context.Context, filter nostr.Filter) (reject bool, msg string) {
+func (s *State) RequireKindAndSingleGroupIDOrSpecificEventReference(
+	ctx context.Context,
+	filter nostr.Filter,
+) (reject bool, msg string) {
 	isMeta := false
 	isNormal := false
 	isReference := false

@@ -253,28 +253,49 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		return
 	}
 
-	// if the group is open, anyone requesting to join will be allowed
+	// if the group is closed these will be ignored
 	group := s.GetGroupFromEvent(event)
-	if !group.Closed {
-		// immediately add the requester
-		addUser := &nostr.Event{
-			CreatedAt: nostr.Now(),
-			Kind:      nostr.KindSimpleGroupPutUser,
-			Tags: nostr.Tags{
-				nostr.Tag{"h", group.Address.ID},
-				nostr.Tag{"p", event.PubKey},
-			},
-		}
-		if err := addUser.Sign(s.secretKey); err != nil {
-			log.Error().Err(err).Msg("failed to sign add-user event")
-			return
-		}
-		if _, err := s.Relay.AddEvent(ctx, addUser); err != nil {
-			log.Error().Err(err).Msg("failed to add user who requested to join")
-			return
-		}
-		s.Relay.BroadcastEvent(addUser)
+	if group.Closed {
+		return
 	}
+
+	// otherwise anyone can join
+	// except for users previously removed
+	ch, err := s.DB.QueryEvents(ctx, nostr.Filter{
+		Kinds: []int{nostr.KindSimpleGroupRemoveUser},
+		Tags: nostr.TagMap{
+			"p": []string{event.PubKey},
+		},
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("failed to check if requested user was previously removed")
+		return
+	}
+
+	// this means the user was previously removed
+	if nil != <-ch {
+		log.Error().Str("pubkey", event.PubKey).Msg("denying access to previously removed user")
+		return
+	}
+
+	// immediately add the requester
+	addUser := &nostr.Event{
+		CreatedAt: nostr.Now(),
+		Kind:      nostr.KindSimpleGroupPutUser,
+		Tags: nostr.Tags{
+			nostr.Tag{"h", group.Address.ID},
+			nostr.Tag{"p", event.PubKey},
+		},
+	}
+	if err := addUser.Sign(s.secretKey); err != nil {
+		log.Error().Err(err).Msg("failed to sign add-user event")
+		return
+	}
+	if _, err := s.Relay.AddEvent(ctx, addUser); err != nil {
+		log.Error().Err(err).Msg("failed to add user who requested to join")
+		return
+	}
+	s.Relay.BroadcastEvent(addUser)
 }
 
 func (s *State) ReactToLeaveRequest(ctx context.Context, event *nostr.Event) {

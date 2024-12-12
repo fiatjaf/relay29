@@ -41,7 +41,7 @@ func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 		defer group.mu.RUnlock()
 		if _, isMemberAlready := group.Members[event.PubKey]; isMemberAlready {
 			// unless you're already a member
-			return true, "already a member"
+			return true, "duplicate: already a member"
 		}
 		return false, ""
 	}
@@ -52,7 +52,7 @@ func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 			// well, as long as the group doesn't exist, of course
 			return false, ""
 		} else {
-			return true, "group already exists"
+			return true, "duplicate: group already exists"
 		}
 	}
 

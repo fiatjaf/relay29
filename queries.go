@@ -225,40 +225,46 @@ func (s *State) NormalEventQuery(ctx context.Context, filter nostr.Filter) (chan
 	ch := make(chan *nostr.Event)
 	authed := s.GetAuthed(ctx)
 	go func() {
-		// now here in refE/refA/ids we have to check for each result if it is allowed.
-		// otherwise, we refuse to respond to the request. TODO: raise a NOTICE for ignored filters
-		var results chan *nostr.Event
-		var err error
-		if refE, ok := filter.Tags["e"]; ok && len(refE) > 0 {
-			results, err = s.DB.QueryEvents(ctx, filter)
-		} else if refA, ok := filter.Tags["a"]; ok && len(refA) > 0 {
-			results, err = s.DB.QueryEvents(ctx, filter)
-		} else if len(filter.IDs) > 0 {
-			results, err = s.DB.QueryEvents(ctx, filter)
-		}
+		results, err := s.DB.QueryEvents(ctx, filter)
 
 		if err != nil || results == nil {
-			// if the previous if didn't catch anything or if we got an error we must end here
 			close(ch)
 			return
 		}
 
 		allowed := set.NewSliceSet[string]()
-		disallowed := set.NewSliceSet[string]()
 		for evt := range results {
-			if group := s.GetGroupFromEvent(evt); !group.Private || allowed.Has(group.Address.ID) {
+			if evt.Kind != 39000 && s.GetGroupIDFromEvent(evt) == nil {
+				// if it has no `h` tag and isn't a metadata event, it's not protected
 				ch <- evt
-			} else if authed != "" && !disallowed.Has(group.Address.ID) {
+				continue
+			}
+
+			group := s.GetGroupFromEvent(evt)
+
+			if !group.Private {
+				// If the group is public, we're good to go
+				ch <- evt
+				continue
+			}
+
+			if authed != "" && !allowed.Has(group.Address.ID) {
 				group.mu.RLock()
+
+				// figure out whether the current user has access to this group
 				if _, isMember := group.Members[authed]; isMember {
 					allowed.Add(group.Address.ID)
-					ch <- evt
-				} else {
-					disallowed.Add(group.Address.ID)
 				}
+
 				group.mu.RUnlock()
 			}
+
+			if allowed.Has(group.Address.ID) {
+				// If they're allowed into the private group, we're good
+				ch <- evt
+			}
 		}
+
 		close(ch)
 	}()
 

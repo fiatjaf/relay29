@@ -67,8 +67,8 @@ func (s *State) RequireKindAndSingleGroupIDOrSpecificEventReference(
 			}
 		}
 	case isReference:
-  	// don't reject wholesale, since a single req may have multiple filters
-  	// filters that we don't want to respond to are dropped in NormalEventQuery
+		// don't reject wholesale, since a single req may have multiple filters
+		// filters that we don't want to respond to are dropped in NormalEventQuery
 	case isMeta:
 		// should be fine
 	}

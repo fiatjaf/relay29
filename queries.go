@@ -225,7 +225,8 @@ func (s *State) NormalEventQuery(ctx context.Context, filter nostr.Filter) (chan
 	ch := make(chan *nostr.Event)
 	authed := s.GetAuthed(ctx)
 	go func() {
-		// now here in refE/refA/ids we have to check for each result if it is allowed
+		// now here in refE/refA/ids we have to check for each result if it is allowed.
+		// otherwise, we refuse to respond to the request. TODO: raise a NOTICE for ignored filters
 		var results chan *nostr.Event
 		var err error
 		if refE, ok := filter.Tags["e"]; ok && len(refE) > 0 {

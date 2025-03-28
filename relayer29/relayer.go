@@ -77,9 +77,9 @@ func Init(opts relay29.Options) (relayer.Relay, *relay29.State) {
 	state.Relay = relay
 
 	// provide GetAuthed function
-	state.GetAuthed = func(context.Context) string {
-		// TODO
-		return ""
+	state.GetAuthed = func(ctx context.Context) string {
+		pubkey, _ := relayer.GetAuthStatus(ctx)
+		return pubkey
 	}
 
 	return relay, state

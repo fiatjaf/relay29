@@ -35,8 +35,8 @@ func (r *Relay) Storage(ctx context.Context) eventstore.Store {
 	}
 }
 
-func (r *Relay) AcceptEvent(ctx context.Context, ev *nostr.Event) bool {
-	return true
+func (r *Relay) AcceptEvent(ctx context.Context, ev *nostr.Event) (bool, string) {
+	return true, ""
 }
 
 func (r *Relay) GetNIP11InformationDocument() nip11.RelayInformationDocument {
@@ -47,7 +47,7 @@ func (r *Relay) GetNIP11InformationDocument() nip11.RelayInformationDocument {
 	return nip11.RelayInformationDocument{
 		Name:          "nostr-relay29",
 		Description:   "relay29 rleay powered by the relayer framework",
-		SupportedNIPs: []int{29},
+		SupportedNIPs: []any{29},
 	}
 }
 
@@ -160,4 +160,8 @@ func (s *Store) SaveEvent(ctx context.Context, ev *nostr.Event) error {
 	}
 
 	return err
+}
+
+func (s *Store) ReplaceEvent(ctx context.Context, ev *nostr.Event) error {
+	return s.store.ReplaceEvent(ctx, ev)
 }

@@ -51,7 +51,7 @@ func (r *Relay) GetNIP11InformationDocument() nip11.RelayInformationDocument {
 	return nip11.RelayInformationDocument{
 		Name:          "nostr-relay29",
 		Description:   "relay29 rleay powered by the relayer framework",
-		SupportedNIPs: []any{1, 2, 4, 9, 11, 12, 15, 16, 20, 22, 28, 29, 33, 40, 42, 45, 50, 70},
+		SupportedNIPs: []any{29},
 	}
 }
 

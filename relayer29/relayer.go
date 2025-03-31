@@ -36,10 +36,6 @@ func (r *Relay) Storage(ctx context.Context) eventstore.Store {
 }
 
 func (r *Relay) AcceptEvent(ctx context.Context, ev *nostr.Event) (bool, string) {
-	_, ok := relayer.GetAuthStatus(ctx)
-	if !ok {
-		return false, "auth-required: please login"
-	}
 	return true, ""
 }
 

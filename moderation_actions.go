@@ -194,7 +194,7 @@ func (a EditMetadata) Apply(group *nip29.Group) {
 		group.Private = *a.PrivateValue
 	}
 	if a.ClosedValue != nil {
-		group.Closed = !*a.ClosedValue
+		group.Closed = *a.ClosedValue
 	}
 }
 

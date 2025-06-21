@@ -163,6 +163,9 @@ func (s *State) CheckPreviousTag(ctx context.Context, event *nostr.Event) (rejec
 
 func (s *State) AddToPreviousChecking(ctx context.Context, event *nostr.Event) {
 	group := s.GetGroupFromEvent(event)
+	if group == nil {
+		return
+	}
 	lastIndex := group.last50index.Add(1) - 1
 	group.last50[lastIndex%50] = event.ID
 }

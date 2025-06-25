@@ -65,7 +65,7 @@ func (s *State) loadGroupsFromDB(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			act.Apply(&group.Group)
+			act.Apply(&group.Group, s)
 		}
 
 		// if the group was deleted there will be no actions after the delete

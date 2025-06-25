@@ -536,3 +536,85 @@ func TestGroupStuffABunch(t *testing.T) {
 		}
 	}
 }
+
+func TestInviteCodeFunctionality(t *testing.T) {
+	defer startTestRelay()()
+	ctx := context.Background()
+
+	user1 := "0000000000000000000000000000000000000000000000000000000000000001"
+	user1pk, _ := nostr.GetPublicKey(user1)
+	user2 := "0000000000000000000000000000000000000000000000000000000000000002"
+	user2pk, _ := nostr.GetPublicKey(user2)
+	user3 := "0000000000000000000000000000000000000000000000000000000000000003"
+	_ = user3 // user3 is used in the invalid invite code test
+
+	// Connect to the relay
+	r, err := nostr.RelayConnect(ctx, "ws://localhost:29292")
+	require.NoError(t, err, "failed to connect to relay")
+
+	// Create a group
+	createGroup := nostr.Event{
+		CreatedAt: 1,
+		Kind:      9007,
+		Tags:      nostr.Tags{{"h", "invite_test"}},
+	}
+	createGroup.Sign(user1)
+	require.NoError(t, r.Publish(ctx, createGroup), "failed to create group")
+
+	// Create an invite code (kind 9009)
+	createInvite := nostr.Event{
+		CreatedAt: 2,
+		Kind:      9009,
+		Tags: nostr.Tags{
+			{"h", "invite_test"},
+			{"code", "test_invite_123"},
+			{"expiration", fmt.Sprintf("%d", nostr.Now()+3600)}, // expires in 1 hour
+		},
+	}
+	createInvite.Sign(user1)
+	require.NoError(t, r.Publish(ctx, createInvite), "failed to create invite code")
+
+	// Try to join with the invite code (kind 9021)
+	joinWithCode := nostr.Event{
+		CreatedAt: 3,
+		Kind:      9021,
+		Content:   "joining with invite code",
+		Tags: nostr.Tags{
+			{"h", "invite_test"},
+			{"code", "test_invite_123"},
+		},
+	}
+	joinWithCode.Sign(user2)
+	require.NoError(t, r.Publish(ctx, joinWithCode), "failed to join with invite code")
+
+	// Wait for the join to be processed
+	time.Sleep(100 * time.Millisecond)
+
+	// Subscribe to members to verify user2 was added
+	membersSub, err := r.Subscribe(ctx, nostr.Filters{{Kinds: []int{39002}, Tags: nostr.TagMap{"d": []string{"invite_test"}}}})
+	require.NoError(t, err, "failed to subscribe to group members")
+
+	// Check if user2 is now a member
+	select {
+	case evt := <-membersSub.Events:
+		require.Equal(t, "invite_test", evt.Tags.GetD())
+		require.NotNil(t, evt.Tags.GetFirst([]string{"p", user1pk}))
+		require.NotNil(t, evt.Tags.GetFirst([]string{"p", user2pk}))
+		require.Len(t, evt.Tags, 3) // d tag + 2 member tags
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for member update")
+	}
+
+	// Try to join again with the same valid code (should fail as already member)
+	joinAgain := nostr.Event{
+		CreatedAt: 5,
+		Kind:      9021,
+		Content:   "trying to join again",
+		Tags: nostr.Tags{
+			{"h", "invite_test"},
+			{"code", "test_invite_123"},
+		},
+	}
+	joinAgain.Sign(user2)
+	require.Error(t, r.Publish(ctx, joinAgain), "should fail as user is already a member")
+}

@@ -3,6 +3,7 @@ package relay29
 import (
 	"fmt"
 	"slices"
+	"strconv"
 
 	"github.com/nbd-wtf/go-nostr"
 	"github.com/nbd-wtf/go-nostr/nip29"
@@ -11,7 +12,7 @@ import (
 var PTagNotValidPublicKey = fmt.Errorf("'p' tag value is not a valid public key")
 
 type Action interface {
-	Apply(group *nip29.Group)
+	Apply(group *nip29.Group, state *State)
 	Name() string
 }
 
@@ -21,6 +22,7 @@ var (
 	_ Action = CreateGroup{}
 	_ Action = DeleteEvent{}
 	_ Action = EditMetadata{}
+	_ Action = CreateInvite{}
 )
 
 func PrepareModerationAction(evt *nostr.Event) (Action, error) {
@@ -124,14 +126,41 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 	nostr.KindSimpleGroupDeleteGroup: func(evt *nostr.Event) (Action, error) {
 		return DeleteGroup{When: evt.CreatedAt}, nil
 	},
+	nostr.KindSimpleGroupCreateInvite: func(evt *nostr.Event) (Action, error) {
+		// Create invite action
+		codeTag := evt.Tags.GetFirst([]string{"code", ""})
+		if codeTag == nil {
+			return nil, fmt.Errorf("missing 'code' tag")
+		}
+
+		code := (*codeTag)[1]
+		if code == "" {
+			return nil, fmt.Errorf("empty invite code")
+		}
+
+		var expiration *nostr.Timestamp
+		if expirationTag := evt.Tags.GetFirst([]string{"expiration", ""}); expirationTag != nil {
+			if exp, err := strconv.ParseInt((*expirationTag)[1], 10, 64); err == nil {
+				timestamp := nostr.Timestamp(exp)
+				expiration = &timestamp
+			}
+		}
+
+		return CreateInvite{
+			Code:       code,
+			Creator:    evt.PubKey,
+			When:       evt.CreatedAt,
+			Expiration: expiration,
+		}, nil
+	},
 }
 
 type DeleteEvent struct {
 	Targets []string
 }
 
-func (_ DeleteEvent) Name() string             { return "delete-event" }
-func (a DeleteEvent) Apply(group *nip29.Group) {}
+func (_ DeleteEvent) Name() string                           { return "delete-event" }
+func (a DeleteEvent) Apply(group *nip29.Group, state *State) {}
 
 type PubKeyRoles struct {
 	PubKey    string
@@ -144,7 +173,7 @@ type PutUser struct {
 }
 
 func (_ PutUser) Name() string { return "put-user" }
-func (a PutUser) Apply(group *nip29.Group) {
+func (a PutUser) Apply(group *nip29.Group, state *State) {
 	for _, target := range a.Targets {
 		roles := make([]*nip29.Role, 0, len(target.RoleNames))
 		for _, roleName := range target.RoleNames {
@@ -163,7 +192,7 @@ type RemoveUser struct {
 }
 
 func (_ RemoveUser) Name() string { return "remove-user" }
-func (a RemoveUser) Apply(group *nip29.Group) {
+func (a RemoveUser) Apply(group *nip29.Group, state *State) {
 	for _, tpk := range a.Targets {
 		delete(group.Members, tpk)
 	}
@@ -179,7 +208,7 @@ type EditMetadata struct {
 }
 
 func (_ EditMetadata) Name() string { return "edit-metadata" }
-func (a EditMetadata) Apply(group *nip29.Group) {
+func (a EditMetadata) Apply(group *nip29.Group, state *State) {
 	group.LastMetadataUpdate = a.When
 	if a.NameValue != nil {
 		group.Name = *a.NameValue
@@ -204,7 +233,7 @@ type CreateGroup struct {
 }
 
 func (_ CreateGroup) Name() string { return "create-group" }
-func (a CreateGroup) Apply(group *nip29.Group) {
+func (a CreateGroup) Apply(group *nip29.Group, state *State) {
 	group.LastMetadataUpdate = a.When
 	group.LastAdminsUpdate = a.When
 	group.LastMembersUpdate = a.When
@@ -215,7 +244,7 @@ type DeleteGroup struct {
 }
 
 func (_ DeleteGroup) Name() string { return "delete-group" }
-func (a DeleteGroup) Apply(group *nip29.Group) {
+func (a DeleteGroup) Apply(group *nip29.Group, state *State) {
 	group.Members = make(map[string][]*nip29.Role)
 	group.Closed = true
 	group.Private = true
@@ -225,4 +254,24 @@ func (a DeleteGroup) Apply(group *nip29.Group) {
 	group.LastMetadataUpdate = a.When
 	group.LastAdminsUpdate = a.When
 	group.LastMembersUpdate = a.When
+}
+
+type CreateInvite struct {
+	Code       string
+	Creator    string
+	When       nostr.Timestamp
+	Expiration *nostr.Timestamp
+}
+
+func (_ CreateInvite) Name() string { return "create-invite" }
+func (a CreateInvite) Apply(group *nip29.Group, state *State) {
+	// Store the invite code in state
+	inviteCode := InviteCode{
+		Code:       a.Code,
+		GroupID:    group.Address.ID,
+		Creator:    a.Creator,
+		CreatedAt:  a.When,
+		Expiration: a.Expiration,
+	}
+	state.InviteCodes.Store(a.Code, inviteCode)
 }

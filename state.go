@@ -3,7 +3,6 @@ package relay29
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/fiatjaf/eventstore"
@@ -34,8 +33,7 @@ type State struct {
 	AllowPrivateGroups bool
 
 	// Store invite codes: map[code]InviteCode
-	InviteCodes      *xsync.MapOf[string, InviteCode]
-	inviteCodesMutex sync.RWMutex
+	InviteCodes *xsync.MapOf[string, InviteCode]
 
 	deletedCache            set.Set[string]
 	publicKey               string

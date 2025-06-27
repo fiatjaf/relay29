@@ -36,13 +36,28 @@ func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 	group := s.GetGroupFromEvent(event)
 
 	if event.Kind == nostr.KindSimpleGroupJoinRequest {
-		// anyone can apply to enter any group (if this is not desired a policy must be added to filter out this stuff)
 		group.mu.RLock()
 		defer group.mu.RUnlock()
+
 		if _, isMemberAlready := group.Members[event.PubKey]; isMemberAlready {
 			// unless you're already a member
 			return true, "duplicate: already a member"
 		}
+
+		// Check if group is closed and validate invite code
+		if group.Closed {
+			codeTag := event.Tags.GetFirst([]string{"code", ""})
+			if codeTag == nil {
+				return true, "group is closed, invite code required"
+			}
+
+			code := (*codeTag)[1]
+			inviteCode, exists := s.GetValidInviteCode(code)
+			if !exists || inviteCode.GroupID != group.Address.ID {
+				return true, "invalid invite code"
+			}
+		}
+
 		return false, ""
 	}
 
@@ -259,23 +274,6 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 	group := s.GetGroupFromEvent(event)
 	if group == nil {
 		return
-	}
-
-	// Check if group is closed
-	if group.Closed {
-		// If group is closed, check if there's a valid invite code
-		codeTag := event.Tags.GetFirst([]string{"code", ""})
-		if codeTag == nil {
-			// No invite code and group is closed - reject
-			return
-		}
-
-		code := (*codeTag)[1]
-		inviteCode, exists := s.GetValidInviteCode(code)
-		if !exists || inviteCode.GroupID != group.Address.ID {
-			// Invalid invite code and group is closed - reject
-			return
-		}
 	}
 
 	// Check if user was previously removed

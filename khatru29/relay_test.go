@@ -546,7 +546,7 @@ func TestInviteCodeFunctionality(t *testing.T) {
 	user2 := "0000000000000000000000000000000000000000000000000000000000000002"
 	user2pk, _ := nostr.GetPublicKey(user2)
 	user3 := "0000000000000000000000000000000000000000000000000000000000000003"
-	_ = user3 // user3 is used in the invalid invite code test
+	_, _ = nostr.GetPublicKey(user3)
 
 	// Connect to the relay
 	r, err := nostr.RelayConnect(ctx, "ws://localhost:29292")
@@ -561,9 +561,21 @@ func TestInviteCodeFunctionality(t *testing.T) {
 	createGroup.Sign(user1)
 	require.NoError(t, r.Publish(ctx, createGroup), "failed to create group")
 
+	// Set group to closed (kind 9002)
+	setGroupClosed := nostr.Event{
+		CreatedAt: 2,
+		Kind:      9002,
+		Tags: nostr.Tags{
+			{"h", "invite_test"},
+			{"closed"},
+		},
+	}
+	setGroupClosed.Sign(user1)
+	require.NoError(t, r.Publish(ctx, setGroupClosed), "failed to set group as closed")
+
 	// Create an invite code (kind 9009)
 	createInvite := nostr.Event{
-		CreatedAt: 2,
+		CreatedAt: 3,
 		Kind:      9009,
 		Tags: nostr.Tags{
 			{"h", "invite_test"},
@@ -576,7 +588,7 @@ func TestInviteCodeFunctionality(t *testing.T) {
 
 	// Try to join with the invite code (kind 9021)
 	joinWithCode := nostr.Event{
-		CreatedAt: 3,
+		CreatedAt: 4,
 		Kind:      9021,
 		Content:   "joining with invite code",
 		Tags: nostr.Tags{
@@ -605,9 +617,22 @@ func TestInviteCodeFunctionality(t *testing.T) {
 		t.Fatal("timed out waiting for member update")
 	}
 
+	// Try to join with wrong invite code (should fail)
+	joinWithWrongCode := nostr.Event{
+		CreatedAt: 5,
+		Kind:      9021,
+		Content:   "trying to join with wrong code",
+		Tags: nostr.Tags{
+			{"h", "invite_test"},
+			{"code", "wrong_invite_code"},
+		},
+	}
+	joinWithWrongCode.Sign(user3)
+	require.Error(t, r.Publish(ctx, joinWithWrongCode), "should fail with wrong invite code")
+
 	// Try to join again with the same valid code (should fail as already member)
 	joinAgain := nostr.Event{
-		CreatedAt: 5,
+		CreatedAt: 6,
 		Kind:      9021,
 		Content:   "trying to join again",
 		Tags: nostr.Tags{

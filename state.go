@@ -3,6 +3,7 @@ package relay29
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/set"
@@ -10,6 +11,14 @@ import (
 	"github.com/nbd-wtf/go-nostr/nip29"
 	"github.com/puzpuzpuz/xsync/v3"
 )
+
+type InviteCode struct {
+	Code       string
+	GroupID    string
+	Creator    string
+	CreatedAt  nostr.Timestamp
+	Expiration *nostr.Timestamp
+}
 
 type State struct {
 	Domain string
@@ -22,6 +31,9 @@ type State struct {
 	GetAuthed func(context.Context) string
 
 	AllowPrivateGroups bool
+
+	// Store invite codes: map[code]InviteCode
+	InviteCodes *xsync.MapOf[string, InviteCode]
 
 	deletedCache            set.Set[string]
 	publicKey               string
@@ -50,12 +62,17 @@ func New(opts Options) *State {
 	// we keep basic data about all groups in memory
 	groups := xsync.NewMapOf[string, *Group]()
 
+	// we keep invite codes in memory
+	inviteCodes := xsync.NewMapOf[string, InviteCode]()
+
 	state := &State{
 		Domain: opts.Domain,
 		Groups: groups,
 		DB:     opts.DB,
 
 		AllowPrivateGroups: true,
+
+		InviteCodes: inviteCodes,
 
 		deletedCache:            deletedCache,
 		publicKey:               pubkey,
@@ -70,5 +87,40 @@ func New(opts Options) *State {
 		panic(fmt.Errorf("failed to load groups from db: %w", err))
 	}
 
+	// start periodic cleanup of expired invite codes
+	go state.cleanupExpiredInviteCodes()
+
 	return state
+}
+
+// cleanupExpiredInviteCodes runs periodically to remove expired invite codes
+func (s *State) cleanupExpiredInviteCodes() {
+	ticker := time.NewTicker(5 * time.Minute) // cleanup every 5 minutes
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := nostr.Now()
+		s.InviteCodes.Range(func(code string, invite InviteCode) bool {
+			if invite.Expiration != nil && now > *invite.Expiration {
+				s.InviteCodes.Delete(code)
+			}
+			return true
+		})
+	}
+}
+
+// GetValidInviteCode returns the invite code if it exists and is not expired
+func (s *State) GetValidInviteCode(code string) (InviteCode, bool) {
+	invite, exists := s.InviteCodes.Load(code)
+	if !exists {
+		return InviteCode{}, false
+	}
+
+	// Check if expired
+	if invite.Expiration != nil && nostr.Now() > *invite.Expiration {
+		s.InviteCodes.Delete(code)
+		return InviteCode{}, false
+	}
+
+	return invite, true
 }

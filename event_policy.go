@@ -36,13 +36,28 @@ func (s *State) RestrictWritesBasedOnGroupRules(ctx context.Context, event *nost
 	group := s.GetGroupFromEvent(event)
 
 	if event.Kind == nostr.KindSimpleGroupJoinRequest {
-		// anyone can apply to enter any group (if this is not desired a policy must be added to filter out this stuff)
 		group.mu.RLock()
 		defer group.mu.RUnlock()
+
 		if _, isMemberAlready := group.Members[event.PubKey]; isMemberAlready {
 			// unless you're already a member
 			return true, "duplicate: already a member"
 		}
+
+		// Check if group is closed and validate invite code
+		if group.Closed {
+			codeTag := event.Tags.GetFirst([]string{"code", ""})
+			if codeTag == nil {
+				return true, "group is closed, invite code required"
+			}
+
+			code := (*codeTag)[1]
+			inviteCode, exists := s.GetValidInviteCode(code)
+			if !exists || inviteCode.GroupID != group.Address.ID {
+				return true, "invalid invite code"
+			}
+		}
+
 		return false, ""
 	}
 
@@ -191,7 +206,7 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 
 	// apply the moderation action
 	group.mu.Lock()
-	action.Apply(&group.Group)
+	action.Apply(&group.Group, s)
 	group.mu.Unlock()
 
 	// if it's a delete event we have to actually delete stuff from the database here
@@ -256,18 +271,17 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		return
 	}
 
-	// if the group is closed these will be ignored
 	group := s.GetGroupFromEvent(event)
-	if group.Closed {
+	if group == nil {
 		return
 	}
 
-	// otherwise anyone can join
-	// except for users previously removed
+	// Check if user was previously removed
 	ch, err := s.DB.QueryEvents(ctx, nostr.Filter{
 		Kinds: []int{nostr.KindSimpleGroupRemoveUser},
 		Tags: nostr.TagMap{
 			"p": []string{event.PubKey},
+			"h": []string{group.Address.ID},
 		},
 	})
 	if err != nil {
@@ -281,7 +295,7 @@ func (s *State) ReactToJoinRequest(ctx context.Context, event *nostr.Event) {
 		return
 	}
 
-	// immediately add the requester
+	// Add the user to the group
 	addUser := &nostr.Event{
 		CreatedAt: nostr.Now(),
 		Kind:      nostr.KindSimpleGroupPutUser,

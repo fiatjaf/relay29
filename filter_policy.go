@@ -67,20 +67,8 @@ func (s *State) RequireKindAndSingleGroupIDOrSpecificEventReference(
 			}
 		}
 	case isReference:
-		if refE, ok := filter.Tags["e"]; ok && len(refE) > 0 {
-			// "#e" tags specified -- pablo's magic discovery trick
-			// we'll handle this while fetching the events so that we don't reveal private content
-			return false, ""
-		} else if refA, ok := filter.Tags["a"]; ok && len(refA) > 0 {
-			// "#a" tags specified -- idem
-			return false, ""
-		} else if len(filter.IDs) > 0 {
-			// "ids" specified -- idem
-			return false, ""
-		} else {
-			// other tags are not supported (unless they come together with "h")
-			return true, "invalid query, must have 'h', 'e' or 'a' tag"
-		}
+		// don't reject wholesale, since a single req may have multiple filters
+		// filters that we don't want to respond to are dropped in NormalEventQuery
 	case isMeta:
 		// should be fine
 	}

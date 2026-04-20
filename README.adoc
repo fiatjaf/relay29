@@ -108,3 +108,17 @@ What this library does is basically:
 - it acts on moderation events and on join-request events received and modify the group state;
 - it generates group metadata events (39000, 39001, 39002, 39003) events on the fly (these are not stored) and returns them to whoever queries them;
 - on startup it loads all the moderation events (9000, 9001, etc) from the database and rebuilds the group state from that (so if you want to modify the group state permanently you must publish one of these events to the relay — but of course you can also monkey-patch the map of groups in memory like an animal if you want);
+
+== Subgroups
+
+Implements the NIP-29 subgroups section. A group declares a parent by including a `parent` tag on its `kind:39000`; the relay stamps the tag on behalf of an admin via a `kind:9002` `edit-metadata` with `["parent", "<parent-d>"]`. Clients build the tree locally from `kind:39000` events.
+
+- Cycles (including self-reference) are rejected.
+- A declared parent that does not exist on the relay is accepted; clients treat the subgroup as a root.
+- Deleting a parent with `kind:9008` promotes every remaining child to root automatically — the relay broadcasts an updated `kind:39000` for each child without the `parent` tag.
+- Membership is independent per subgroup. Being a member of the parent grants no access to the child; children are joined with the normal `kind:9021` → `kind:9000` flow.
+- Detach to root: `["parent"]` or `["parent", ""]`.
+- *Admin attestation*: the emitted `parent` tag carries the authoring admin's pubkey as a third element, e.g. `["parent", "tech", "<admin-pk>"]`. On detach the attester is cleared.
+- *Bilateral declaration*: a parent group admin may publish `["child", "<id>", "<order>", "<flags>"]` tags and/or a `["closed-children"]` flag on the parent's `kind:39000` via `kind:9002`; the relay stores and re-emits them. `<order>` and `<flags>` are optional.
+- *Unsetting bilateral state*: a bare `["child"]` tag (no id) clears the entire acceptance list; `["open-children"]` clears the `closed-children` flag. These mirror the existing `open`/`closed` and `public`/`private` pairs.
+- Unknown tags on subgroup-related events are ignored rather than rejected (per spec).

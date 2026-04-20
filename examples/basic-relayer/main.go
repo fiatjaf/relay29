@@ -80,7 +80,7 @@ func main() {
 				}
 			}
 		}
-		if !slices.Contains([]int{9, 10, 11, 12, 30023, 31922, 31923, 9802, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9021}, ev.Kind) {
+		if !slices.Contains([]int{9, 10, 11, 12, 30023, 31922, 31923, 9802, 9000, 9001, 9002, 9003, 9004, 9005, 9006, 9007, 9008, 9009, 9021, 9022}, ev.Kind) {
 			return true, fmt.Sprintf("received event kind %d not allowed", ev.Kind)
 		}
 		if nostr.Now()-ev.CreatedAt > 60 {

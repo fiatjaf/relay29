@@ -3,6 +3,7 @@ package relay29
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/fiatjaf/eventstore"
 	"github.com/fiatjaf/set"
@@ -28,6 +29,11 @@ type State struct {
 	secretKey               string
 	defaultRoles            []*nip29.Role
 	groupCreatorDefaultRole *nip29.Role
+
+	// reparentMu serializes cycle-check + reparent so two concurrent
+	// EditMetadata events cannot both pass the cycle check against stale
+	// state and then form a cycle when both are applied.
+	reparentMu sync.Mutex
 
 	AllowAction func(ctx context.Context, group nip29.Group, role *nip29.Role, action Action) bool
 }

@@ -96,6 +96,42 @@ var moderationActionFactories = map[int]func(*nostr.Event) (Action, error){
 			ok = true
 		}
 
+		if t := evt.Tags.GetFirst([]string{"parent"}); t != nil {
+			var parent string
+			if len(*t) >= 2 {
+				parent = (*t)[1]
+			}
+			edit.ParentValue = &parent
+			ok = true
+		}
+
+		if childTags := evt.Tags.GetAll([]string{"child"}); len(childTags) > 0 {
+			entries := make([]ChildEntry, 0, len(childTags))
+			for _, tag := range childTags {
+				if len(tag) < 2 || tag[1] == "" {
+					continue
+				}
+				entry := ChildEntry{ID: tag[1]}
+				if len(tag) >= 3 {
+					entry.Order = tag[2]
+				}
+				if len(tag) >= 4 {
+					entry.Flags = append([]string(nil), tag[3:]...)
+				}
+				entries = append(entries, entry)
+			}
+			edit.ChildEntriesValue = &entries
+			ok = true
+		}
+
+		if t := evt.Tags.GetFirst([]string{"closed-children"}); t != nil {
+			edit.ClosedChildrenValue = &y
+			ok = true
+		} else if t := evt.Tags.GetFirst([]string{"open-children"}); t != nil {
+			edit.ClosedChildrenValue = &n
+			ok = true
+		}
+
 		if ok {
 			return edit, nil
 		}
@@ -170,12 +206,15 @@ func (a RemoveUser) Apply(group *nip29.Group) {
 }
 
 type EditMetadata struct {
-	NameValue    *string
-	PictureValue *string
-	AboutValue   *string
-	PrivateValue *bool
-	ClosedValue  *bool
-	When         nostr.Timestamp
+	NameValue           *string
+	PictureValue        *string
+	AboutValue          *string
+	PrivateValue        *bool
+	ClosedValue         *bool
+	ParentValue         *string       // nil = unchanged; "" = detach to root; "<id>" = attach
+	ChildEntriesValue   *[]ChildEntry // nil = unchanged; non-nil = replace list
+	ClosedChildrenValue *bool         // nil = unchanged; true = set flag
+	When                nostr.Timestamp
 }
 
 func (_ EditMetadata) Name() string { return "edit-metadata" }

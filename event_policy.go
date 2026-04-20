@@ -112,6 +112,12 @@ func (s *State) RestrictInvalidModerationActions(ctx context.Context, event *nos
 		return true, "groups cannot be private"
 	}
 
+	if egs, ok := action.(EditMetadata); ok && egs.ParentValue != nil && *egs.ParentValue != "" {
+		if s.WouldCreateCycle(group.Address.ID, *egs.ParentValue) {
+			return true, "declared parent would create a cycle in the subgroup hierarchy"
+		}
+	}
+
 	group.mu.RLock()
 	defer group.mu.RUnlock()
 	roles, _ := group.Members[event.PubKey]
@@ -189,10 +195,26 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 		group = s.GetGroupFromEvent(event)
 	}
 
-	// apply the moderation action
+	// apply the moderation action under the child's own lock
 	group.mu.Lock()
 	action.Apply(&group.Group)
+	// child entries and closed-children live on the wrapper Group; apply them
+	// here under the same lock as the rest of the metadata edit.
+	if em, ok := action.(EditMetadata); ok {
+		if em.ChildEntriesValue != nil {
+			group.ChildEntries = *em.ChildEntriesValue
+		}
+		if em.ClosedChildrenValue != nil {
+			group.ClosedChildren = *em.ClosedChildrenValue
+		}
+	}
 	group.mu.Unlock()
+
+	// parent relationship involves other groups, so Reparent takes its own
+	// locks in isolation and must run with group.mu released
+	if em, ok := action.(EditMetadata); ok && em.ParentValue != nil {
+		s.Reparent(group, *em.ParentValue, event.PubKey)
+	}
 
 	// if it's a delete event we have to actually delete stuff from the database here
 	if event.Kind == nostr.KindSimpleGroupDeleteEvent {
@@ -222,6 +244,22 @@ func (s *State) ApplyModerationAction(ctx context.Context, event *nostr.Event) {
 			}
 		}
 	} else if event.Kind == nostr.KindSimpleGroupDeleteGroup {
+		// detach from parent's children set
+		if group.Parent != "" {
+			if parent, _ := s.Groups.Load(group.Parent); parent != nil {
+				parent.mu.Lock()
+				delete(parent.Children, group.Address.ID)
+				parent.mu.Unlock()
+			}
+		}
+		// per spec, when a parent is deleted its remaining children automatically
+		// become roots — clear the link and broadcast the updated kind:39000.
+		promoted := s.promoteChildrenToRoots(group)
+		for _, child := range promoted {
+			evt := child.ToMetadataEvent()
+			evt.Sign(s.secretKey)
+			s.Relay.BroadcastEvent(evt)
+		}
 		// when the group was deleted we just remove it
 		s.Groups.Delete(group.Address.ID)
 	}
